@@ -1,0 +1,23 @@
+@import "tailwindcss";
+
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+  background: #16161e;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* xterm viewport should not intercept canvas gestures */
+.xterm .xterm-viewport {
+  background-color: transparent !important;
+  scrollbar-width: thin;
+  scrollbar-color: #2f334d transparent;
+}
+
+/* Thin scrollbars for panels */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #2f334d transparent;
+}
