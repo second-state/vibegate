@@ -28,6 +28,16 @@ export const drawerOpen: Writable<boolean> = writable(true);
 /** Whether the file browser panel is visible. */
 export const filesOpen: Writable<boolean> = writable(false);
 
+/** The canvas TouchZoom controller (set by Canvas on mount). */
+export const zoomController: Writable<{
+  moveTo(pos: number[], zoom: number): Promise<void>;
+  center: number[];
+  zoom: number;
+} | null> = writable(null);
+
+/** Current canvas zoom factor (mirrored from TouchZoom). */
+export const canvasZoom: Writable<number> = writable(1);
+
 /** Live sessions for open windows (component lifecycle manages entries). */
 export const sessions = new Map<string, TerminalSession>();
 

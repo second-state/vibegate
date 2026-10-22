@@ -6,6 +6,8 @@
     hasWindows,
     focusPrefix,
     windows,
+    zoomController,
+    canvasZoom,
   } from "../lib/canvas";
   import { connection } from "../lib/connection";
   import TermWindow from "./TermWindow.svelte";
@@ -27,9 +29,11 @@
 
   onMount(() => {
     touchZoom = new TouchZoom(fabric);
+    zoomController.set(touchZoom);
     const off = touchZoom.onMove(() => {
       center = touchZoom.center;
       zoom = touchZoom.zoom;
+      canvasZoom.set(touchZoom.zoom);
       // Blur the focused terminal so panning keeps working when the pointer
       // crosses its (hidden) textarea.
       const active = document.activeElement;
@@ -40,6 +44,7 @@
     return () => {
       off();
       touchZoom.destroy();
+      zoomController.set(null);
     };
   });
 

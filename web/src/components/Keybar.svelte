@@ -1,6 +1,6 @@
 <script lang="ts">
   import { writable } from "svelte/store";
-  import { focusPrefix, getSession } from "../lib/canvas";
+  import { focusPrefix, getSession, zoomController, canvasZoom } from "../lib/canvas";
 
   /** Quick keys: label → raw bytes sent to `pty_in`. */
   const KEYS_ROW1: [string, string][] = [
@@ -78,6 +78,13 @@
     session?.scroll(up);
   }
 
+  /** Reset the canvas zoom to 1x, keeping the current view position. */
+  function resetZoom() {
+    const zt = $zoomController;
+    if (!zt) return;
+    zt.moveTo(zt.center, 1);
+  }
+
   const keyCls =
     "h-8 min-w-8 shrink-0 touch-manipulation rounded-md bg-slate-800 px-2 text-sm text-slate-200 hover:bg-slate-700 active:bg-slate-600";
 </script>
@@ -98,50 +105,61 @@
         {/each}
       </div>
 
-      <!-- the rest, in two rows -->
-      <div class="flex min-w-0 flex-1 flex-col gap-1">
-        <div class="flex gap-1 overflow-x-auto">
-          {#each KEYS_ROW1 as [label, bytes] (label)}
+      <!-- the rest, in two rows + a scroll/zoom column -->
+      <div class="flex min-w-0 flex-1 items-start gap-3">
+        <div class="flex min-w-0 flex-1 flex-col gap-1">
+          <div class="flex gap-1 overflow-x-auto">
+            {#each KEYS_ROW1 as [label, bytes] (label)}
+              <button
+                class={keyCls}
+                on:pointerdown|preventDefault={() => press(bytes)}
+              >
+                {label}
+              </button>
+            {/each}
+          </div>
+          <div class="flex gap-1 overflow-x-auto">
             <button
-              class={keyCls}
-              on:pointerdown|preventDefault={() => press(bytes)}
+              class={$sticky.ctrl ? modOn : modOff}
+              title="粘滞 Ctrl:下一次按键附带 Ctrl"
+              on:pointerdown|preventDefault={() => toggleMod("ctrl")}
             >
-              {label}
+              Ctrl
             </button>
-          {/each}
+            <button
+              class={$sticky.alt ? modOn : modOff}
+              title="粘滞 Alt:下一次按键附带 Alt"
+              on:pointerdown|preventDefault={() => toggleMod("alt")}
+            >
+              Alt
+            </button>
+            <button
+              class={$sticky.shift ? modOn : modOff}
+              title="粘滞 Shift:下一次按键附带 Shift"
+              on:pointerdown|preventDefault={() => toggleMod("shift")}
+            >
+              Shift
+            </button>
+            <button
+              class="{Math.abs($canvasZoom - 1) > 0.01 ? modOn : modOff}"
+              title="重置画布缩放到 1×(当前 {$canvasZoom.toFixed(1)}×)"
+              on:pointerdown|preventDefault={resetZoom}
+            >
+              1×
+            </button>
+          </div>
         </div>
-        <div class="flex gap-1 overflow-x-auto">
+        <!-- scroll column: ⤒ over ⤓, always aligned -->
+        <div class="flex shrink-0 flex-col items-center gap-0.5">
           <button
-            class={$sticky.ctrl ? modOn : modOff}
-            title="粘滞 Ctrl:下一次按键附带 Ctrl"
-            on:pointerdown|preventDefault={() => toggleMod("ctrl")}
-          >
-            Ctrl
-          </button>
-          <button
-            class={$sticky.alt ? modOn : modOff}
-            title="粘滞 Alt:下一次按键附带 Alt"
-            on:pointerdown|preventDefault={() => toggleMod("alt")}
-          >
-            Alt
-          </button>
-          <button
-            class={$sticky.shift ? modOn : modOff}
-            title="粘滞 Shift:下一次按键附带 Shift"
-            on:pointerdown|preventDefault={() => toggleMod("shift")}
-          >
-            Shift
-          </button>
-          <span class="mx-0.5 my-0.5 w-px shrink-0 bg-slate-700"></span>
-          <button
-            class="{keyCls} font-bold"
+            class="{keyCls} w-8 px-0 font-bold"
             title="向上滚动服务端 scrollback"
             on:pointerdown|preventDefault={() => doScroll(true)}
           >
             ⤒
           </button>
           <button
-            class="{keyCls} font-bold"
+            class="{keyCls} w-8 px-0 font-bold"
             title="向下滚动服务端 scrollback"
             on:pointerdown|preventDefault={() => doScroll(false)}
           >
