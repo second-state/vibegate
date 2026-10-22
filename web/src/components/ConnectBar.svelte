@@ -133,7 +133,7 @@
   </div>
 
   {#if showSettings}
-    <div class="absolute inset-x-2 top-full mt-1 rounded-lg border border-slate-700 bg-[#1a1b26] p-3 shadow-xl">
+    <div class="absolute left-2 top-full mt-1 w-[calc(100vw-1rem)] max-w-md rounded-lg border border-slate-700 bg-[#1a1b26] p-3 shadow-xl">
       <div class="flex flex-col gap-2">
         <label class="flex flex-col gap-1 text-xs text-slate-400">
           vibegate 网关地址
