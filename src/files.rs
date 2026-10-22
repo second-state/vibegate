@@ -75,7 +75,7 @@ fn resolve(state: &FilesState, raw: &str) -> Result<PathBuf, Response> {
 }
 
 fn err(code: StatusCode, message: &str) -> Response {
-    (code, message.to_string()).into_response()
+    (code, json!({"error": message}).to_string()).into_response()
 }
 
 /// Content type by extension — `<img>` tags only render SVG (and other
@@ -187,11 +187,12 @@ pub async fn download_handler(
     (headers, Body::from_stream(stream)).into_response()
 }
 
-/// PUT /api/file?path=...
+/// PUT /api/file?path=... — streams the body to disk (no size limit; nothing
+/// is buffered whole, so multi-hundred-MB uploads cost no RAM).
 pub async fn upload_handler(
     State(state): State<Arc<FilesState>>,
     Query(q): Query<FilePath>,
-    body: axum::body::Bytes,
+    body: axum::body::Body,
 ) -> Response {
     let path = match resolve(&state, &q.path) {
         Ok(p) => p,
@@ -200,11 +201,30 @@ pub async fn upload_handler(
     if path.is_dir() {
         return err(StatusCode::BAD_REQUEST, "path is a directory");
     }
-    match tokio::fs::write(&path, &body).await {
-        Ok(()) => {
-            let resp = json!({"type":"uploaded","path":path.display().to_string(),"size":body.len()});
-            (StatusCode::OK, resp.to_string()).into_response()
+    use tokio::io::AsyncWriteExt;
+    let mut file = match tokio::fs::File::create(&path).await {
+        Ok(f) => f,
+        Err(e) => return err(StatusCode::INTERNAL_SERVER_ERROR, &e.to_string()),
+    };
+    let mut size: u64 = 0;
+    let mut stream = body.into_data_stream();
+    while let Some(chunk) = futures_util::StreamExt::next(&mut stream).await {
+        let chunk = match chunk {
+            Ok(c) => c,
+            Err(e) => {
+                // Client aborted / connection broke: don't leave a partial file.
+                let _ = tokio::fs::remove_file(&path).await;
+                return err(StatusCode::BAD_REQUEST, &format!("upload aborted: {e}"));
+            }
+        };
+        if let Err(e) = file.write_all(&chunk).await {
+            return err(StatusCode::INTERNAL_SERVER_ERROR, &e.to_string());
         }
-        Err(e) => err(StatusCode::INTERNAL_SERVER_ERROR, &e.to_string()),
+        size += chunk.len() as u64;
     }
+    if let Err(e) = file.flush().await {
+        return err(StatusCode::INTERNAL_SERVER_ERROR, &e.to_string());
+    }
+    let resp = json!({"type":"uploaded","path":path.display().to_string(),"size":size});
+    (StatusCode::OK, resp.to_string()).into_response()
 }

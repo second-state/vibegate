@@ -168,7 +168,10 @@ async fn run(
             "/api/file",
             axum::routing::get(files::download_handler).put(files::upload_handler),
         )
-        .with_state(files_state);
+        .with_state(files_state)
+        // Uploads stream to disk unbounded (the default 2 MB extractor cap
+        // would 413 phone photos).
+        .layer(axum::extract::DefaultBodyLimit::disable());
 
     let mut app = ws_routes.merge(file_routes);
 
