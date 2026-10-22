@@ -1,6 +1,7 @@
 <script lang="ts">
   import { discovery } from "../lib/discovery";
   import { openWindow, focusPrefix, windows, drawerOpen } from "../lib/canvas";
+  import { writable } from "svelte/store";
   import { connection } from "../lib/connection";
   import type { Instance } from "../lib/discovery";
 
@@ -8,16 +9,13 @@
   const connState = connection.state;
   const workspaces = connection.workspaces;
 
-  let expanded: Record<string, boolean> = {};
+  /** Per-workspace collapse state; a store so the template stays reactive. */
+  const expandedStore = writable<Record<string, boolean>>({});
   let creatingWorkspace = false;
   let creatingPane: string | null = null;
 
-  const isOpen = (id: string) => expanded[id] !== false;
-  const toggle = (id: string) => {
-    // Reassign the object — mutating a plain `let` object's property does not
-    // invalidate anything in Svelte.
-    expanded = { ...expanded, [id]: !isOpen(id) };
-  };
+  const toggle = (id: string) =>
+    expandedStore.update((m) => ({ ...m, [id]: m[id] === false }));
 
   function stateColor(state: string): string {
     return state === "working"
@@ -49,7 +47,7 @@
     creatingWorkspace = true;
     connection.createWorkspace("web", undefined, (sid) => {
       creatingWorkspace = false;
-      expanded[sid] = true;
+      expandedStore.update((m) => ({ ...m, [sid]: true }));
       openWindow(sid);
     });
     setTimeout(() => (creatingWorkspace = false), 5000);
@@ -58,7 +56,7 @@
   function createPane(groupId: string) {
     if (creatingPane || $connState !== "connected") return;
     creatingPane = groupId;
-    expanded[groupId] = true;
+    expandedStore.update((m) => ({ ...m, [groupId]: true }));
     connection.createPane(groupId, undefined, (sid) => {
       creatingPane = null;
       openWindow(sid);
@@ -93,7 +91,7 @@
               on:click={() => toggle(g.id)}
               title="展开/收起"
             >
-              <span class="w-3 shrink-0 text-slate-500">{isOpen(g.id) ? "▾" : "▸"}</span>
+              <span class="w-3 shrink-0 text-slate-500">{$expandedStore[g.id] !== false ? "▾" : "▸"}</span>
               <span class="min-w-0 flex-1 truncate font-semibold text-slate-300">{g.label}</span>
               <span class="shrink-0 text-[10px] text-slate-600">{g.panes.length}</span>
             </button>
@@ -107,7 +105,7 @@
             </button>
           </div>
           <!-- panes -->
-          {#if isOpen(g.id)}
+          {#if $expandedStore[g.id] !== false}
             <div class="ml-3 flex flex-col gap-0.5 border-l border-slate-800 pl-1">
               {#each g.panes as p (p.sid)}
                 <button

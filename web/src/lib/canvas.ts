@@ -25,6 +25,9 @@ export const focusPrefix: Writable<string | null> = writable(null);
 /** Whether the session drawer panel is visible. */
 export const drawerOpen: Writable<boolean> = writable(true);
 
+/** Whether the file browser panel is visible. */
+export const filesOpen: Writable<boolean> = writable(false);
+
 /** Live sessions for open windows (component lifecycle manages entries). */
 export const sessions = new Map<string, TerminalSession>();
 

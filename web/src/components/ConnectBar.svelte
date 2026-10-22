@@ -6,7 +6,7 @@
     validateGatewayUrl,
     mixedContentWarning,
   } from "../lib/connection";
-  import { drawerOpen } from "../lib/canvas";
+  import { drawerOpen, filesOpen } from "../lib/canvas";
 
   let url = "";
   let showSettings = false;
@@ -89,8 +89,24 @@
       ✎
     </button>
     <button
-      class="rounded-md bg-slate-800 px-2.5 py-1 text-xs font-medium text-slate-200 hover:bg-slate-700"
-      on:click={() => drawerOpen.update((v) => !v)}
+      class="rounded-md {$filesOpen
+        ? 'bg-blue-600'
+        : 'bg-slate-800'} px-2.5 py-1 text-xs font-medium text-slate-200 hover:bg-slate-700"
+      on:click={() => {
+        filesOpen.update((v) => !v);
+        drawerOpen.set(false);
+      }}
+    >
+      文件
+    </button>
+    <button
+      class="rounded-md {$drawerOpen
+        ? 'bg-blue-600'
+        : 'bg-slate-800'} px-2.5 py-1 text-xs font-medium text-slate-200 hover:bg-slate-700"
+      on:click={() => {
+        drawerOpen.update((v) => !v);
+        filesOpen.set(false);
+      }}
     >
       会话
     </button>
