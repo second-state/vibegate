@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { writable } from "svelte/store";
   import { focusPrefix, getSession, zoomController, canvasZoom } from "../lib/canvas";
+  import { stickyMods, toggleMod, clearMods, applyMods } from "../lib/mods";
 
   /** Quick keys: label → raw bytes sent to `pty_in`. */
   const KEYS_ROW1: [string, string][] = [
@@ -18,58 +18,24 @@
     { label: "→", row: 2, col: 3, bytes: "\x1b[C" },
   ];
 
-  /** Sticky modifiers: click to latch (highlighted), the next key includes
-   *  them, then they clear. */
-  type Mods = { ctrl: boolean; alt: boolean; shift: boolean };
-  const sticky = writable<Mods>({ ctrl: false, alt: false, shift: false });
-
-  function toggleMod(k: keyof Mods) {
-    sticky.update((m) => ({ ...m, [k]: !m[k] }));
-  }
+  /** Sticky modifiers live in lib/mods.ts so the soft-keyboard input path
+   *  (TerminalSession.#onData) consumes them too. */
 
   const modCls =
     "h-8 min-w-8 shrink-0 touch-manipulation rounded-md px-2 text-sm font-medium ";
   const modOff = modCls + "bg-slate-800 text-slate-300 hover:bg-slate-700";
   const modOn = modCls + "bg-blue-600 text-white";
 
-  /** Encode bytes with xterm-style modifier parameters. */
-  function applyMods(bytes: string, m: Mods): string {
-    const mod = 1 + (m.shift ? 1 : 0) + (m.alt ? 2 : 0) + (m.ctrl ? 4 : 0);
-    // Arrow keys: CSI 1;<mod><letter>
-    const csi = /^(\x1b\[)([ABCD])$/.exec(bytes);
-    if (csi) return `\x1b[1;${mod}${csi[2]}`;
-    switch (bytes) {
-      case "\t":
-        return m.shift && !m.alt && !m.ctrl ? "\x1b[Z" : `\x1b[27;${mod}~`;
-      case "\r":
-      case "\x7f":
-        return `\x1b[27;${mod}~`;
-      case "\x1b":
-        return "\x1b\x1b";
-      default: {
-        // Single printable char: ctrl maps to control codes, alt = ESC prefix.
-        if (bytes.length === 1) {
-          let out = bytes;
-          if (m.ctrl) {
-            const code = out.toUpperCase().charCodeAt(0);
-            if (code >= 64 && code <= 95) out = String.fromCharCode(code & 0x1f);
-          }
-          return (m.alt ? "\x1b" : "") + out;
-        }
-        return bytes;
-      }
-    }
-  }
+  /** Encode bytes with xterm-style modifier parameters (see lib/mods.ts). */
 
   function press(bytes: string) {
     const prefix = $focusPrefix;
     const session = prefix ? getSession(prefix) : null;
     if (!session) return;
-    let v: Mods = { ctrl: false, alt: false, shift: false };
-    sticky.subscribe((m) => (v = m))();
-    const any = v.ctrl || v.alt || v.shift;
-    session.sendRaw(any ? applyMods(bytes, v) : bytes);
-    if (any) sticky.set({ ctrl: false, alt: false, shift: false });
+    const m = $stickyMods;
+    const any = m.ctrl || m.alt || m.shift;
+    session.sendRaw(any ? applyMods(bytes, m) : bytes);
+    if (any) clearMods();
   }
 
   function doScroll(up: boolean) {
@@ -120,22 +86,22 @@
           </div>
           <div class="flex gap-1 overflow-x-auto">
             <button
-              class={$sticky.ctrl ? modOn : modOff}
-              title="粘滞 Ctrl:下一次按键附带 Ctrl"
+              class={$stickyMods.ctrl ? modOn : modOff}
+              title="粘滞 Ctrl:下一次按键(按钮或软键盘输入)附带 Ctrl"
               on:pointerdown|preventDefault={() => toggleMod("ctrl")}
             >
               Ctrl
             </button>
             <button
-              class={$sticky.alt ? modOn : modOff}
-              title="粘滞 Alt:下一次按键附带 Alt"
+              class={$stickyMods.alt ? modOn : modOff}
+              title="粘滞 Alt:下一次按键(按钮或软键盘输入)附带 Alt"
               on:pointerdown|preventDefault={() => toggleMod("alt")}
             >
               Alt
             </button>
             <button
-              class={$sticky.shift ? modOn : modOff}
-              title="粘滞 Shift:下一次按键附带 Shift"
+              class={$stickyMods.shift ? modOn : modOff}
+              title="粘滞 Shift:下一次按键(按钮或软键盘输入)附带 Shift"
               on:pointerdown|preventDefault={() => toggleMod("shift")}
             >
               Shift

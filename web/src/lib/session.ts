@@ -12,9 +12,10 @@ import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebglAddon } from "@xterm/addon-webgl";
 import { UnicodeGraphemesAddon } from "@xterm/addon-unicode-graphemes";
-import { writable, type Writable } from "svelte/store";
+import { get, writable, type Writable } from "svelte/store";
 import { TERM_FONT_FAMILY, TERM_FONT_SIZE, TERM_PRESETS } from "./theme";
 import { appearance, getAppearance, resolveBgUrl } from "./appearance";
+import { stickyMods, clearMods, applyModsToTyped } from "./mods";
 
 const SYNC_DEBOUNCE_MS = 200;
 
@@ -56,7 +57,7 @@ export class TerminalSession {
     appearance.subscribe(() => this.#applyAppearance());
     this.fitAddon = new FitAddon();
     this.term.loadAddon(this.fitAddon);
-    this.term.onData((data) => this.#sendInput(data));
+    this.term.onData((data) => this.#onData(data));
   }
 
   /** Attach the terminal to a DOM element and open the stream. */
@@ -174,6 +175,19 @@ export class TerminalSession {
       this.ws = null;
     }
     this.term.dispose();
+  }
+
+  /** xterm keyboard output (soft keyboard, real keys, paste): wrap with the
+   *  latched sticky modifiers — the mobile keyboard has no Ctrl/Alt — then
+   *  clear them. One keypress, one use. */
+  #onData(data: string) {
+    const m = get(stickyMods);
+    if (m.ctrl || m.alt || m.shift) {
+      this.#sendInput(applyModsToTyped(data, m));
+      clearMods();
+    } else {
+      this.#sendInput(data);
+    }
   }
 
   #sendInput(data: string) {
