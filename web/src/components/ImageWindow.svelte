@@ -70,20 +70,6 @@
       <span class="min-w-0 flex-1 truncate text-xs font-medium text-slate-300" title={path}>
         {name}
       </span>
-      {#if loaded && natural.w > 0}
-        <span class="shrink-0 rounded bg-slate-800 px-1 text-[10px] tabular-nums text-slate-400">
-          {natural.w}×{natural.h}
-        </span>
-      {/if}
-      <a
-        class="shrink-0 rounded px-1 text-xs text-slate-500 hover:text-slate-200"
-        title="下载"
-        href={url}
-        download={name}
-        use:stopNative={["pointerdown"]}
-      >
-        ⇩
-      </a>
       <button
         class="shrink-0 rounded px-1 text-[10px] text-slate-500 hover:bg-slate-700 hover:text-slate-200"
         title="设为画布背景"
@@ -99,6 +85,28 @@
         on:mousedown={(e) => e.button === 0 && setAppearance({ termBg: path })}
       >
         终端
+      </button>
+      {#if loaded && natural.w > 0}
+        <span class="shrink-0 rounded bg-slate-800 px-1 text-[10px] tabular-nums text-slate-400">
+          {natural.w}×{natural.h}
+        </span>
+      {/if}
+      <a
+        class="shrink-0 rounded px-1 text-xs text-slate-500 hover:text-slate-200"
+        title="下载"
+        href={url}
+        download={name}
+        use:stopNative={["pointerdown"]}
+      >
+        ⇩
+      </a>
+      <button
+        class="shrink-0 rounded px-1.5 text-sm text-slate-500 hover:text-red-400"
+        title="关闭窗口"
+        use:stopNative={["pointerdown", "dblclick"]}
+        on:mousedown={(e) => e.button === 0 && closeWindow(key())}
+      >
+        ×
       </button>
     </div>
 
