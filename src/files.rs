@@ -78,6 +78,16 @@ fn err(code: StatusCode, message: &str) -> Response {
     (code, json!({"error": message}).to_string()).into_response()
 }
 
+/// Sidecar file remembering the upload token of an in-progress (resumable)
+/// upload: `.<filename>.vbp`. Filtered out of directory listings.
+fn sidecar_path(p: &Path) -> PathBuf {
+    let name = p
+        .file_name()
+        .map(|n| n.to_string_lossy().to_string())
+        .unwrap_or_default();
+    p.with_file_name(format!(".{name}.vbp"))
+}
+
 /// Content type by extension — `<img>` tags only render SVG (and other
 /// non-raster formats) when served with a proper image/* type.
 fn content_type(path: &Path) -> &'static str {
@@ -130,6 +140,10 @@ pub async fn list_handler(
     };
     let mut entries = Vec::new();
     while let Ok(Some(entry)) = rd.next_entry().await {
+        // Hide resumable-upload sidecar files.
+        if entry.file_name().to_string_lossy().ends_with(".vbp") {
+            continue;
+        }
         let Ok(meta) = entry.metadata().await else { continue };
         entries.push(json!({
             "name": entry.file_name().to_string_lossy(),
@@ -187,10 +201,52 @@ pub async fn download_handler(
     (headers, Body::from_stream(stream)).into_response()
 }
 
+/// GET /api/upload/status?path=...&token=... — how many bytes of a resumable
+/// upload does the server already hold? A token mismatch (stale partial from
+/// a different session) discards the partial and reports 0.
+#[derive(Deserialize)]
+pub struct UploadStatusQuery {
+    path: String,
+    token: String,
+}
+
+pub async fn upload_status_handler(
+    State(state): State<Arc<FilesState>>,
+    Query(q): Query<UploadStatusQuery>,
+) -> Response {
+    let path = match resolve(&state, &q.path) {
+        Ok(p) => p,
+        Err(r) => return r,
+    };
+    let sidecar = sidecar_path(&path);
+    let meta = match tokio::fs::metadata(&path).await {
+        Ok(m) if m.is_file() => m,
+        _ => {
+            let _ = tokio::fs::remove_file(&sidecar).await;
+            return (StatusCode::OK, json!({"size": 0}).to_string()).into_response();
+        }
+    };
+    let saved = tokio::fs::read_to_string(&sidecar).await.unwrap_or_default();
+    if saved.trim() == q.token {
+        (StatusCode::OK, json!({"size": meta.len()}).to_string()).into_response()
+    } else {
+        let _ = tokio::fs::remove_file(&path).await;
+        let _ = tokio::fs::remove_file(&sidecar).await;
+        (StatusCode::OK, json!({"size": 0}).to_string()).into_response()
+    }
+}
+
 /// PUT /api/file?path=... — streams the body to disk (no size limit; nothing
 /// is buffered whole, so multi-hundred-MB uploads cost no RAM).
+///
+/// Resumable protocol: with `X-Upload-Token` (and `X-Upload-Total`), bytes are
+/// APPENDED to any partial left by an interrupted attempt carrying the same
+/// token; the partial and its sidecar survive a broken connection and are only
+/// cleaned up once the announced total has been reached. Without the header
+/// the write truncates and an aborted transfer removes the partial (legacy).
 pub async fn upload_handler(
     State(state): State<Arc<FilesState>>,
+    headers: axum::http::HeaderMap,
     Query(q): Query<FilePath>,
     body: axum::body::Body,
 ) -> Response {
@@ -201,19 +257,73 @@ pub async fn upload_handler(
     if path.is_dir() {
         return err(StatusCode::BAD_REQUEST, "path is a directory");
     }
+    let token = headers
+        .get("x-upload-token")
+        .and_then(|v| v.to_str().ok())
+        .map(String::from);
+    let total: Option<u64> = headers
+        .get("x-upload-total")
+        .and_then(|v| v.to_str().ok())
+        .and_then(|s| s.parse().ok());
+
     use tokio::io::AsyncWriteExt;
-    let mut file = match tokio::fs::File::create(&path).await {
-        Ok(f) => f,
-        Err(e) => return err(StatusCode::INTERNAL_SERVER_ERROR, &e.to_string()),
+    let mut file = if let Some(tok) = &token {
+        let sidecar = sidecar_path(&path);
+        let saved = tokio::fs::read_to_string(&sidecar).await.unwrap_or_default();
+        let existing = tokio::fs::metadata(&path).await.ok().map(|m| m.len());
+        if saved.trim() == tok && existing.is_some() {
+            // Defensive: the body we're about to append must land exactly at
+            // the announced total. (A client that lost its offset could send
+            // the whole file again — appending that would corrupt the file.)
+            if let (Some(have), Some(cl)) = (
+                existing,
+                headers
+                    .get("content-length")
+                    .and_then(|v| v.to_str().ok())
+                    .and_then(|s| s.parse::<u64>().ok()),
+            ) {
+                if let Some(t) = total {
+                    if have + cl != t {
+                        return err(
+                            StatusCode::CONFLICT,
+                            "offset mismatch — query /api/upload/status and retry",
+                        );
+                    }
+                }
+            }
+            // Same interrupted upload: append to what we already have.
+            match tokio::fs::OpenOptions::new().append(true).open(&path).await {
+                Ok(f) => f,
+                Err(e) => return err(StatusCode::INTERNAL_SERVER_ERROR, &e.to_string()),
+            }
+        } else {
+            // Fresh start: truncate and mark the partial as ours.
+            if tokio::fs::write(&sidecar, tok).await.is_err() {
+                return err(StatusCode::INTERNAL_SERVER_ERROR, "cannot mark partial upload");
+            }
+            match tokio::fs::File::create(&path).await {
+                Ok(f) => f,
+                Err(e) => return err(StatusCode::INTERNAL_SERVER_ERROR, &e.to_string()),
+            }
+        }
+    } else {
+        match tokio::fs::File::create(&path).await {
+            Ok(f) => f,
+            Err(e) => return err(StatusCode::INTERNAL_SERVER_ERROR, &e.to_string()),
+        }
     };
+
     let mut size: u64 = 0;
     let mut stream = body.into_data_stream();
     while let Some(chunk) = futures_util::StreamExt::next(&mut stream).await {
         let chunk = match chunk {
             Ok(c) => c,
             Err(e) => {
-                // Client aborted / connection broke: don't leave a partial file.
-                let _ = tokio::fs::remove_file(&path).await;
+                if token.is_none() {
+                    // Legacy upload: don't leave a partial behind.
+                    let _ = tokio::fs::remove_file(&path).await;
+                }
+                // Token mode keeps partial + sidecar so the next attempt resumes.
                 return err(StatusCode::BAD_REQUEST, &format!("upload aborted: {e}"));
             }
         };
@@ -222,9 +332,17 @@ pub async fn upload_handler(
         }
         size += chunk.len() as u64;
     }
-    if let Err(e) = file.flush().await {
-        return err(StatusCode::INTERNAL_SERVER_ERROR, &e.to_string());
+    let _ = file.flush().await;
+
+    if token.is_some() {
+        // Request finished cleanly: once the announced total is on disk the
+        // upload is complete — drop the sidecar.
+        let len = tokio::fs::metadata(&path).await.map(|m| m.len()).unwrap_or(0);
+        if total.map_or(true, |t| len >= t) {
+            let _ = tokio::fs::remove_file(sidecar_path(&path)).await;
+        }
     }
+
     let resp = json!({"type":"uploaded","path":path.display().to_string(),"size":size});
     (StatusCode::OK, resp.to_string()).into_response()
 }

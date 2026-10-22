@@ -16,7 +16,10 @@
   let entries: Entry[] = [];
   let loading = false;
   let errMsg = "";
-  let uploading = 0; // files currently in flight
+
+  type Upload = { id: number; name: string; pct: number };
+  let uploads: Upload[] = []; // in-flight uploads, shown as progress rows
+  let uploadSeq = 0;
   let fileInput: HTMLInputElement;
 
   /** HTTP base for the file API, derived from the gateway WS URL. */
@@ -91,26 +94,135 @@
     fileInput?.click();
   }
 
+  /** PUT with upload progress — fetch can't report it, XHR can. Resumable:
+   *  sends the slice from `offset` with the token; the server appends. */
+  function putWithProgress(
+    target: string,
+    file: File,
+    offset: number,
+    token: string,
+    onProgress: (pct: number) => void,
+  ): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open("PUT", `${apiBase()}/api/file?path=${encodeURIComponent(target)}`);
+      xhr.setRequestHeader("X-Upload-Token", token);
+      xhr.setRequestHeader("X-Upload-Total", String(file.size));
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) {
+          onProgress(Math.min(100, Math.round(((offset + e.loaded) / file.size) * 100)));
+        }
+      };
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve();
+          return;
+        }
+        let msg = `HTTP ${xhr.status}`;
+        try {
+          msg = JSON.parse(xhr.responseText)?.error ?? msg;
+        } catch {
+          /* non-JSON error body */
+        }
+        reject(new Error(msg));
+      };
+      xhr.onerror = () => reject(new Error("网络错误"));
+      xhr.send(offset > 0 ? file.slice(offset) : file);
+    });
+  }
+
+  /** Stable token per target path, so interrupted uploads stay resumable
+   *  across retries and even page reloads. */
+  const TOKEN_KEY = "vibeview.uploadTokens";
+  /** randomUUID needs a secure context; getRandomValues works everywhere. */
+  function randomToken(): string {
+    const b = new Uint8Array(8);
+    crypto.getRandomValues(b);
+    return Array.from(b, (x) => x.toString(16).padStart(2, "0")).join("");
+  }
+  function tokenFor(target: string): string {
+    try {
+      const m = JSON.parse(localStorage.getItem(TOKEN_KEY) ?? "{}");
+      if (typeof m[target] === "string") return m[target];
+      const t = randomToken();
+      m[target] = t;
+      localStorage.setItem(TOKEN_KEY, JSON.stringify(m));
+      return t;
+    } catch {
+      return randomToken();
+    }
+  }
+
+  /** Bytes the server already holds for this token. Never guesses: if the
+   *  query fails we must not assume 0 — sending the whole file would make
+   *  the server append it onto the existing partial. */
+  async function uploadOffset(target: string, token: string): Promise<number> {
+    const resp = await fetch(
+      `${apiBase()}/api/upload/status?path=${encodeURIComponent(target)}&token=${token}`,
+    );
+    const body = await resp.json();
+    if (typeof body.size !== "number") throw new Error("无法查询断点");
+    return body.size;
+  }
+
+  /** One file, resumable: up to 3 attempts, each continuing from the bytes
+   *  already on the server. */
+  async function uploadOne(file: File): Promise<void> {
+    const id = ++uploadSeq;
+    const target = joinPath(file.name);
+    const token = tokenFor(target);
+    uploads = [...uploads, { id, name: file.name, pct: 0 }];
+    try {
+      for (let attempt = 1; ; attempt++) {
+        try {
+          const offset = Math.min(await uploadOffset(target, token), file.size);
+          uploads = uploads.map((u) =>
+            u.id === id ? { ...u, pct: Math.round((offset / file.size) * 100) } : u,
+          );
+          await putWithProgress(target, file, offset, token, (pct) => {
+            uploads = uploads.map((u) => (u.id === id ? { ...u, pct } : u));
+          });
+          return;
+        } catch (e) {
+          // Covers both the PUT and the breakpoint query (which must never
+          // be skipped — assuming offset 0 could duplicate data server-side).
+          if (attempt >= 3) throw e;
+          errMsg = `上传中断,正在续传(${attempt}/3)…`;
+          await new Promise((r) => setTimeout(r, 1000));
+        }
+      }
+    } finally {
+      uploads = uploads.filter((u) => u.id !== id);
+    }
+  }
+
+  /** Files that failed all attempts — a ↻ button resumes them in place
+   *  from the breakpoint (no re-picking). */
+  let failedUploads: { id: number; file: File }[] = [];
+  let failedSeq = 0;
+
+  async function retryUpload(entry: { id: number; file: File }) {
+    failedUploads = failedUploads.filter((x) => x.id !== entry.id);
+    try {
+      await uploadOne(entry.file);
+    } catch (e) {
+      failedUploads = [...failedUploads, entry];
+      errMsg = `上传失败 ${entry.file.name}: ${(e as Error).message}`;
+      return;
+    }
+    await load(path);
+  }
+
   async function uploadFiles(ev: Event) {
     const input = ev.target as HTMLInputElement;
     const files = Array.from(input.files ?? []);
     input.value = "";
     for (const f of files) {
-      uploading += 1;
       try {
-        const target = joinPath(f.name);
-        const resp = await fetch(
-          `${apiBase()}/api/file?path=${encodeURIComponent(target)}`,
-          { method: "PUT", body: f },
-        );
-        if (!resp.ok) {
-          const body = await resp.json().catch(() => null);
-          errMsg = `上传失败 ${f.name}: ${body?.message ?? resp.status}`;
-        }
+        await uploadOne(f);
       } catch (e) {
-        errMsg = `上传失败 ${f.name}: ${e}`;
-      } finally {
-        uploading -= 1;
+        failedUploads = [...failedUploads, { id: ++failedSeq, file: f }];
+        errMsg = `上传失败 ${f.name}: ${(e as Error).message}`;
       }
     }
     await load(path);
@@ -152,11 +264,11 @@
       </span>
       <button
         class="shrink-0 rounded bg-slate-800 px-1.5 py-0.5 text-[11px] text-slate-200 hover:bg-slate-700 disabled:opacity-40"
-        disabled={loading || uploading > 0}
+        disabled={loading || uploads.length > 0}
         on:click={pickUpload}
         title="上传到当前目录"
       >
-        {uploading > 0 ? `上传中(${uploading})` : "⇧ 上传"}
+        {uploads.length > 0 ? `上传中(${uploads.length})` : "⇧ 上传"}
       </button>
       <input
         type="file"
@@ -166,6 +278,40 @@
         on:change={uploadFiles}
       />
     </div>
+
+    <!-- upload progress + failed rows -->
+    {#if uploads.length || failedUploads.length}
+      <div class="flex flex-col gap-1 border-b border-slate-800 px-3 py-1.5">
+        {#each uploads as u (u.id)}
+          <div class="flex items-center gap-2 text-[11px] text-slate-400">
+            <span class="min-w-0 flex-1 truncate">{u.name}</span>
+            <span class="shrink-0 tabular-nums text-slate-500">{u.pct}%</span>
+          </div>
+          <div class="h-1 w-full overflow-hidden rounded bg-slate-800">
+            <div class="h-full bg-blue-500" style:width="{u.pct}%"></div>
+          </div>
+        {/each}
+        {#each failedUploads as fu (fu.id)}
+          <div class="flex items-center gap-2 text-[11px]">
+            <span class="min-w-0 flex-1 truncate text-red-300">⚠ {fu.file.name}</span>
+            <button
+              class="shrink-0 rounded bg-slate-800 px-1.5 py-0.5 text-slate-200 hover:bg-slate-700"
+              title="从断点继续上传"
+              on:click={() => retryUpload(fu)}
+            >
+              ↻ 重传
+            </button>
+            <button
+              class="shrink-0 px-0.5 text-slate-500 hover:text-slate-200"
+              title="忽略"
+              on:click={() => (failedUploads = failedUploads.filter((x) => x.id !== fu.id))}
+            >
+              ×
+            </button>
+          </div>
+        {/each}
+      </div>
+    {/if}
 
     <!-- entries -->
     <div class="flex flex-1 flex-col overflow-auto p-1.5">

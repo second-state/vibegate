@@ -168,6 +168,7 @@ async fn run(
             "/api/file",
             axum::routing::get(files::download_handler).put(files::upload_handler),
         )
+        .route("/api/upload/status", axum::routing::get(files::upload_status_handler))
         .with_state(files_state)
         // Uploads stream to disk unbounded (the default 2 MB extractor cap
         // would 413 phone photos).
