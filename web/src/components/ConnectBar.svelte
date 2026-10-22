@@ -2,23 +2,21 @@
   import { onMount } from "svelte";
   import {
     connection,
-    loadSettings,
-    saveSettings,
-    validateBrokerUrl,
+    loadGatewayUrl,
+    saveGatewayUrl,
+    validateGatewayUrl,
     mixedContentWarning,
   } from "../lib/connection";
   import { drawerOpen } from "../lib/canvas";
 
   let url = "";
-  let username = "";
-  let password = "";
   let showSettings = false;
 
   const connState = connection.state;
   const connError = connection.error;
 
   onMount(() => {
-    ({ url, username, password } = loadSettings());
+    url = loadGatewayUrl();
     if (url) doConnect();
   });
 
@@ -35,21 +33,21 @@
   } as const;
 
   function doConnect() {
-    const verr = validateBrokerUrl(url.trim());
+    const verr = validateGatewayUrl(url.trim());
     if (verr) {
       connection.error.set(verr);
       connection.state.set("error");
       return;
     }
-    saveSettings(url.trim(), username.trim(), password);
-    connection.connect(url.trim(), username.trim(), password);
+    saveGatewayUrl(url.trim());
+    connection.connect(url.trim());
   }
 
   function doDisconnect() {
     connection.disconnect();
   }
 
-  /** Enter in any connection field applies the settings immediately. */
+  /** Enter in the URL field applies the settings immediately. */
   function fieldKeydown(e: KeyboardEvent) {
     if (e.key === "Enter") {
       e.preventDefault();
@@ -62,7 +60,7 @@
 <header class="relative z-20 flex items-center gap-2 border-b border-slate-800 bg-[#16161e] px-3 py-2">
   <div class="flex items-baseline gap-2">
     <span class="text-sm font-bold tracking-wide text-slate-100">vibeview</span>
-    <span class="hidden text-xs text-slate-500 sm:inline">vibetty 终端查看端</span>
+    <span class="hidden text-xs text-slate-500 sm:inline">vibegate 终端查看端</span>
   </div>
 
   <button
@@ -73,11 +71,11 @@
     {badge[state][0]}
   </button>
 
-  <!-- Broker address: click to edit (desktop). -->
+  <!-- Gateway address: click to edit (desktop). -->
   <button
     class="hidden max-w-[24rem] items-center gap-1 truncate text-left text-xs text-slate-500 hover:text-slate-300 md:flex"
     on:click={() => (showSettings = true)}
-    title="编辑 broker 地址"
+    title="编辑 vibegate 地址"
   >
     <span class="truncate">{url || "未配置地址"}</span>
     <span class="shrink-0 text-slate-600">✎</span>
@@ -88,7 +86,7 @@
     <button
       class="rounded-md bg-slate-800 px-2 py-1 text-xs text-slate-300 hover:bg-slate-700 md:hidden"
       on:click={() => (showSettings = true)}
-      title="编辑 broker 地址"
+      title="编辑 vibegate 地址"
     >
       ✎
     </button>
@@ -104,42 +102,18 @@
     <div class="absolute inset-x-2 top-full mt-1 rounded-lg border border-slate-700 bg-[#1a1b26] p-3 shadow-xl">
       <div class="flex flex-col gap-2">
         <label class="flex flex-col gap-1 text-xs text-slate-400">
-          Broker WebSocket 地址
+          vibegate 网关地址
           <input
             class="rounded-md border border-slate-700 bg-slate-900 px-2 py-1.5 text-sm text-slate-100 outline-none focus:border-blue-500"
             style="font-size: 16px"
             bind:value={url}
-            placeholder="ws://192.168.1.10:9001/mqtt"
+            placeholder="ws://192.168.1.10:8480/ws"
             spellcheck="false"
             on:keydown={fieldKeydown}
           />
         </label>
-        <div class="flex gap-2">
-          <label class="flex flex-1 flex-col gap-1 text-xs text-slate-400">
-            用户名(可选)
-            <input
-              class="rounded-md border border-slate-700 bg-slate-900 px-2 py-1.5 text-sm text-slate-100 outline-none focus:border-blue-500"
-              style="font-size: 16px"
-              bind:value={username}
-              autocomplete="off"
-              spellcheck="false"
-              on:keydown={fieldKeydown}
-            />
-          </label>
-          <label class="flex flex-1 flex-col gap-1 text-xs text-slate-400">
-            密码(可选)
-            <input
-              class="rounded-md border border-slate-700 bg-slate-900 px-2 py-1.5 text-sm text-slate-100 outline-none focus:border-blue-500"
-              style="font-size: 16px"
-              type="password"
-              bind:value={password}
-              autocomplete="off"
-              on:keydown={fieldKeydown}
-            />
-          </label>
-        </div>
         <p class="text-xs text-slate-500">
-          路径须以 <code class="text-slate-400">/mqtt</code> 结尾;https 页面请用 wss://。
+          即 vibegate 服务端的 <code class="text-slate-400">/ws</code> 地址;https 页面请用 wss://。
         </p>
         {#if mixedWarn}
           <p class="text-xs text-yellow-400">{mixedWarn}</p>

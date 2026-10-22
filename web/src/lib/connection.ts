@@ -1,12 +1,11 @@
 /**
- * MQTT-over-WebSocket connection management.
+ * vibegate gateway connection: one control WebSocket per page.
  *
- * A single shared client connects to the broker; message routing is done by
- * registered listeners (discovery, terminal sessions). Follows the wire
- * behavior of vibetty's `/mqtt_ws` debug page.
+ * Replaces the old MQTT transport. The server (vibegate) pushes the pane list
+ * on connect and whenever it changes; terminal bytes flow on separate
+ * `/term/<sid>` sockets owned by each TerminalSession.
  */
 
-import mqtt, { type MqttClient } from "mqtt";
 import { writable, type Writable } from "svelte/store";
 
 export type ConnState =
@@ -16,9 +15,18 @@ export type ConnState =
   | "reconnecting"
   | "error";
 
-const URL_KEY = "vibeview.brokerUrl";
-const USER_KEY = "vibeview.brokerUser";
-const PASS_KEY = "vibeview.brokerPass";
+export type PaneInfo = {
+  /** herdr terminal id — the address of everything (term socket, create). */
+  sid: string;
+  pane_id: string;
+  title: string;
+  agent: string | null;
+  agent_status: string;
+  cwd: string;
+  workspace_id: string;
+};
+
+const URL_KEY = "vibeview.gatewayUrl";
 
 const safeGet = (k: string): string | null => {
   try {
@@ -42,39 +50,24 @@ const safeDel = (k: string) => {
   }
 };
 
-/** Saved connection settings, with `?broker=`/`?url=` query param override. */
-export function loadSettings(): {
-  url: string;
-  username: string;
-  password: string;
-} {
+/** Saved gateway URL, with `?broker=`/`?url=`/`?gateway=` query override. */
+export function loadGatewayUrl(): string {
   const q = new URLSearchParams(window.location.search);
-  const url =
-    q.get("broker") || q.get("url") || safeGet(URL_KEY) || "ws://localhost:9001/mqtt";
-  return {
-    url,
-    username: safeGet(USER_KEY) ?? "",
-    password: safeGet(PASS_KEY) ?? "",
-  };
+  return (
+    q.get("gateway") || q.get("broker") || q.get("url") || safeGet(URL_KEY) || "ws://localhost:8480/ws"
+  );
 }
 
-export function saveSettings(url: string, username: string, password: string) {
+export function saveGatewayUrl(url: string) {
   if (url) safeSet(URL_KEY, url);
   else safeDel(URL_KEY);
-  if (username) safeSet(USER_KEY, username);
-  else safeDel(USER_KEY);
-  if (password) safeSet(PASS_KEY, password);
-  else safeDel(PASS_KEY);
 }
 
 /** Returns an error message, or null if the URL looks valid. */
-export function validateBrokerUrl(url: string): string | null {
+export function validateGatewayUrl(url: string): string | null {
   if (!/^wss?:\/\//i.test(url)) return "URL 须 ws:// 或 wss:// 开头";
   try {
-    const u = new URL(url);
-    if (!u.pathname.endsWith("/mqtt")) {
-      return "URL 路径必须以 /mqtt 结尾(如 ws://host:9001/mqtt)";
-    }
+    new URL(url);
     return null;
   } catch {
     return "URL 格式无效";
@@ -89,119 +82,122 @@ export function mixedContentWarning(url: string): string | null {
   return null;
 }
 
-type MessageListener = (topic: string, payload: Uint8Array) => void;
-type ConnectListener = () => void;
-
 class Connection {
   readonly state: Writable<ConnState> = writable("idle");
   readonly error: Writable<string | null> = writable(null);
+  /** Latest pane list pushed by the gateway. */
+  readonly panes: Writable<PaneInfo[]> = writable([]);
 
-  client: MqttClient | null = null;
-
-  #messageListeners = new Set<MessageListener>();
-  #connectListeners = new Set<ConnectListener>();
+  private ws: WebSocket | null = null;
+  private url = "";
+  private disposed = false;
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
   get connected(): boolean {
-    return this.client?.connected ?? false;
+    return this.ws?.readyState === WebSocket.OPEN;
   }
 
-  onMessage(listener: MessageListener): () => void {
-    this.#messageListeners.add(listener);
-    return () => this.#messageListeners.delete(listener);
+  /** The URL the current connection (or last attempt) used. */
+  get urlValue(): string {
+    return this.url;
   }
 
-  /** Called on every (re)connect — use to (re)subscribe topics. */
-  onConnect(listener: ConnectListener): () => void {
-    this.#connectListeners.add(listener);
-    return () => this.#connectListeners.delete(listener);
-  }
-
-  connect(url: string, username: string, password: string) {
+  connect(url: string) {
     this.disconnect();
     this.error.set(null);
+    this.url = url;
+    this.disposed = false;
+    this.state.set("connecting");
 
-    const clientId = `vibeview-${Math.random().toString(16).slice(2, 10)}`;
-    let client: MqttClient;
+    this.open();
+  }
+
+  private open() {
+    let ws: WebSocket;
     try {
-      client = mqtt.connect(url, {
-        clientId,
-        clean: true,
-        keepalive: 30,
-        reconnectPeriod: 3000,
-        connectTimeout: 8000,
-        username: username || undefined,
-        password: password || undefined,
-      });
+      ws = new WebSocket(this.url);
+      ws.binaryType = "arraybuffer";
     } catch (e) {
       this.state.set("error");
       this.error.set(`连接异常: ${e}`);
       return;
     }
-    this.client = client;
-    this.state.set("connecting");
+    this.ws = ws;
 
-    client.on("connect", () => {
+    ws.onopen = () => {
       this.state.set("connected");
       this.error.set(null);
-      for (const fn of this.#connectListeners) {
-        try {
-          fn();
-        } catch (err) {
-          console.error("connect listener failed", err);
-        }
+    };
+    ws.onmessage = (ev) => {
+      let msg: any;
+      try {
+        msg = JSON.parse(ev.data as string);
+      } catch {
+        return;
       }
-    });
-    client.on("reconnect", () => {
-      this.state.set("reconnecting");
-    });
-    client.on("close", () => {
-      if (!client.connected) this.state.set("reconnecting");
-    });
-    client.on("offline", () => {
-      this.state.set("reconnecting");
-    });
-    client.on("error", (e) => {
-      const msg =
-        e && typeof e === "object" && "message" in e ? e.message : String(e);
-      this.error.set(msg);
-      // auth/protocol errors are fatal — mqtt.js would loop forever otherwise
-      if (client.connected) return;
-      this.state.set("error");
-      client.end(true);
-      this.client = null;
-    });
-    client.on("message", (topic, payload) => {
-      const bytes = new Uint8Array(payload);
-      for (const fn of this.#messageListeners) {
-        try {
-          fn(topic, bytes);
-        } catch (err) {
-          console.error("message listener failed", err);
-        }
+      if (msg.type === "sessions" && Array.isArray(msg.panes)) {
+        this.panes.set(msg.panes as PaneInfo[]);
+      } else if (msg.type === "error") {
+        this.error.set(String(msg.message ?? "gateway error"));
       }
-    });
+    };
+    ws.onclose = () => {
+      if (this.disposed) return;
+      this.state.set("reconnecting");
+      // The gateway is a single binary; a short retry covers restarts.
+      this.reconnectTimer = setTimeout(() => this.open(), 3000);
+    };
+    ws.onerror = () => {
+      if (!this.connected) {
+        this.state.set("reconnecting");
+      }
+    };
   }
 
   disconnect() {
-    if (this.client) {
-      this.client.end(true);
-      this.client = null;
+    this.disposed = true;
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
     }
+    if (this.ws) {
+      this.ws.onclose = null;
+      this.ws.close();
+      this.ws = null;
+    }
+    this.panes.set([]);
     this.state.set("idle");
   }
 
-  publish(topic: string, payload: Uint8Array | string, qos: 0 | 1 = 0) {
-    // Pass Uint8Array straight through: mqtt.js's browser bundle has its own
-    // buffer shim (the Node global `Buffer` does not exist in Vite builds).
-    this.client?.publish(topic, payload as any, { qos, retain: false });
+  send(msg: object) {
+    if (this.connected && this.ws) {
+      this.ws.send(JSON.stringify(msg));
+    }
   }
 
-  subscribe(topic: string, qos: 0 | 1 = 0) {
-    this.client?.subscribe(topic, { qos });
+  /** Ask the gateway to create a workspace + shell; result arrives as a
+   *  `created` message on the control socket. */
+  createSession(label: string, cwd?: string, onCreated: (sid: string, workspaceId: string | null) => void = () => {}) {
+    if (!this.connected || !this.ws) return;
+    const ws = this.ws;
+    const handler = (ev: MessageEvent) => {
+      let m: any;
+      try {
+        m = JSON.parse(ev.data as string);
+      } catch {
+        return;
+      }
+      if (m.type === "created") {
+        ws.removeEventListener("message", handler);
+        onCreated(m.sid as string, (m.workspace_id as string) ?? null);
+      }
+    };
+    ws.addEventListener("message", handler);
+    this.send({ type: "create", label, cwd });
   }
 
-  unsubscribe(topic: string) {
-    this.client?.unsubscribe(topic);
+  killSession(workspaceId: string) {
+    this.send({ type: "kill", workspace_id: workspaceId });
   }
 }
 

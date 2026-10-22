@@ -94,7 +94,7 @@
           {#if $connState === "connected"}
             点右上角「会话」打开一个 vibetty 实例
           {:else}
-            先在顶部连接 MQTT broker
+            先在顶部连接 vibegate 网关
           {/if}
         </p>
         <p class="mt-2 text-xs text-slate-500">拖动空白平移 · 双指/滚轮缩放 · 双击窗口居中</p>

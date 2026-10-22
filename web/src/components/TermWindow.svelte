@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { TerminalSession } from "../lib/session";
+  import { TerminalSession, type SessionStatus } from "../lib/session";
   import {
     registerSession,
     unregisterSession,
@@ -12,6 +12,7 @@
     MIN_H,
   } from "../lib/canvas";
   import { discovery } from "../lib/discovery";
+  import { connection } from "../lib/connection";
 
   export let prefix: string;
   export let zoom = 1;
@@ -19,11 +20,12 @@
   let session: TerminalSession | null = null;
   let termEl: HTMLElement;
   let readOnly = false;
+  let status: SessionStatus = "connecting";
 
-  const instances = discovery.instances;
+  const instances = discovery.list;
 
   $: rect = $windows.get(prefix);
-  $: instance = $instances.get(prefix);
+  $: instance = $instances.find((i) => i.sid === prefix);
   $: focused = $focusPrefix === prefix;
 
   // Refit when the window is resized (initial fit happens in attach()).
@@ -36,14 +38,13 @@
     if (resized) session.fit();
   }
 
-  // Focus drives bandwidth: only the focused window gets pushed data.
-  $: if (session) session.setActive(focused);
-
   onMount(() => {
-    session = new TerminalSession(prefix);
+    session = new TerminalSession(prefix, connection.urlValue);
     registerSession(prefix, session);
+    const unsubStatus = session.status.subscribe((s) => (status = s));
     session.attach(termEl);
     return () => {
+      unsubStatus();
       unregisterSession(prefix);
       session!.close();
       session = null;
@@ -117,7 +118,6 @@
 
   $: title = instance?.title || prefix;
   $: state = instance?.state ?? "";
-  $: format = instance?.format ?? "text";
 </script>
 
 {#if rect}
@@ -148,16 +148,11 @@
           : state === 'waiting'
             ? 'bg-yellow-400'
             : 'bg-slate-500'}"
-        title={state || 'unknown'}
+        title={state || 'shell'}
       ></span>
       <span class="min-w-0 flex-1 truncate text-xs font-medium text-slate-300" title={prefix}>
         {title}
       </span>
-      {#if format !== "text"}
-        <span class="shrink-0 rounded bg-orange-900 px-1 text-[10px] text-orange-300">
-          format:{format} 不支持
-        </span>
-      {/if}
       <button
         class="shrink-0 rounded px-1 text-xs {readOnly ? 'text-yellow-400' : 'text-slate-500 hover:text-slate-300'}"
         title={readOnly ? "只读模式(点击开启键盘输入)" : "点击切换为只读模式"}
@@ -168,7 +163,7 @@
       </button>
       <button
         class="shrink-0 rounded px-1.5 text-sm text-slate-500 hover:text-red-400"
-        title="关闭窗口"
+        title="关闭窗口(不影响远端会话)"
         on:pointerdown|stopPropagation
         on:click={() => closeWindow(prefix)}
       >
@@ -184,6 +179,15 @@
     {#if readOnly && focused}
       <div class="pointer-events-none absolute inset-x-0 top-8 flex justify-center">
         <span class="rounded-b bg-yellow-900/80 px-2 py-0.5 text-[10px] text-yellow-200">只读</span>
+      </div>
+    {/if}
+
+    {#if status === "ended" || status === "error"}
+      <div class="absolute inset-0 top-8 flex items-center justify-center bg-[#16161e]/80">
+        <div class="rounded-lg border border-slate-700 bg-slate-900 px-4 py-3 text-center text-sm">
+          <p class="mb-1 text-slate-300">{status === "error" ? "连接出错" : "会话已结束"}</p>
+          <p class="text-xs text-slate-500">远端面板已关闭,窗口可以关掉了</p>
+        </div>
       </div>
     {/if}
 
