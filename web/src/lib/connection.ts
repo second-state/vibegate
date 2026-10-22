@@ -26,6 +26,13 @@ export type PaneInfo = {
   workspace_id: string;
 };
 
+export type WorkspaceInfo = {
+  id: string;
+  label: string;
+  number: number;
+  pane_count: number;
+};
+
 /**
  * Default gateway URL: same origin as this page (`ws(s)://host/ws`), since
  * vibegate serves the frontend and the WebSocket side by side. An explicit
@@ -65,6 +72,8 @@ class Connection {
   readonly error: Writable<string | null> = writable(null);
   /** Latest pane list pushed by the gateway. */
   readonly panes: Writable<PaneInfo[]> = writable([]);
+  /** Latest workspace list pushed by the gateway. */
+  readonly workspaces: Writable<WorkspaceInfo[]> = writable([]);
 
   private ws: WebSocket | null = null;
   private url = "";
@@ -115,6 +124,9 @@ class Connection {
       }
       if (msg.type === "sessions" && Array.isArray(msg.panes)) {
         this.panes.set(msg.panes as PaneInfo[]);
+        if (Array.isArray(msg.workspaces)) {
+          this.workspaces.set(msg.workspaces as WorkspaceInfo[]);
+        }
       } else if (msg.type === "error") {
         this.error.set(String(msg.message ?? "gateway error"));
       }
@@ -144,6 +156,7 @@ class Connection {
       this.ws = null;
     }
     this.panes.set([]);
+    this.workspaces.set([]);
     this.state.set("idle");
   }
 
@@ -153,11 +166,15 @@ class Connection {
     }
   }
 
-  /** Ask the gateway to create a workspace + shell; result arrives as a
-   *  `created` message on the control socket. */
-  createSession(label: string, cwd?: string, onCreated: (sid: string, workspaceId: string | null) => void = () => {}) {
+  /** Generic create: sends `kind`, waits for the matching reply type. */
+  #create(
+    kind: "create" | "create_pane",
+    payload: Record<string, unknown>,
+    onCreated: (sid: string, workspaceId: string | null) => void,
+  ) {
     if (!this.connected || !this.ws) return;
     const ws = this.ws;
+    const expect = kind === "create" ? "created" : "created_pane";
     const handler = (ev: MessageEvent) => {
       let m: any;
       try {
@@ -165,17 +182,41 @@ class Connection {
       } catch {
         return;
       }
-      if (m.type === "created") {
+      if (m.type === expect) {
         ws.removeEventListener("message", handler);
         onCreated(m.sid as string, (m.workspace_id as string) ?? null);
       }
     };
     ws.addEventListener("message", handler);
-    this.send({ type: "create", label, cwd });
+    this.send({ type: kind, ...payload });
   }
 
-  killSession(workspaceId: string) {
+  /** Create a new workspace with a fresh shell; `created` arrives async. */
+  createWorkspace(
+    label: string,
+    cwd: string | undefined,
+    onCreated: (sid: string, workspaceId: string | null) => void = () => {},
+  ) {
+    this.#create("create", { label, cwd }, onCreated);
+  }
+
+  /** Create a fresh shell pane inside an existing workspace. */
+  createPane(
+    workspaceId: string,
+    cwd: string | undefined,
+    onCreated: (sid: string, workspaceId: string | null) => void = () => {},
+  ) {
+    this.#create("create_pane", { workspace_id: workspaceId, cwd }, onCreated);
+  }
+
+  /** Close a whole workspace (all its panes die). */
+  killWorkspace(workspaceId: string) {
     this.send({ type: "kill", workspace_id: workspaceId });
+  }
+
+  /** Close a single pane. */
+  killPane(paneId: string) {
+    this.send({ type: "kill_pane", pane_id: paneId });
   }
 }
 

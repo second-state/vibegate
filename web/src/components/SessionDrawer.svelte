@@ -2,11 +2,22 @@
   import { discovery } from "../lib/discovery";
   import { openWindow, focusPrefix, windows, drawerOpen } from "../lib/canvas";
   import { connection } from "../lib/connection";
+  import type { Instance } from "../lib/discovery";
 
   const list = discovery.list;
   const connState = connection.state;
+  const workspaces = connection.workspaces;
 
-  let creating = false;
+  let expanded: Record<string, boolean> = {};
+  let creatingWorkspace = false;
+  let creatingPane: string | null = null;
+
+  const isOpen = (id: string) => expanded[id] !== false;
+  const toggle = (id: string) => {
+    // Reassign the object — mutating a plain `let` object's property does not
+    // invalidate anything in Svelte.
+    expanded = { ...expanded, [id]: !isOpen(id) };
+  };
 
   function stateColor(state: string): string {
     return state === "working"
@@ -16,20 +27,48 @@
         : "bg-slate-500";
   }
 
-  /** Shorten a herdr terminal id for display. */
-  function shortId(sid: string): string {
-    return sid.length > 18 ? sid.slice(0, 15) + "…" : sid;
+  type Group = { id: string; label: string; number: number; panes: Instance[] };
+
+  $: groups = buildGroups($workspaces, $list);
+  $: orphans = $list.filter((p) => !groups.some((g) => g.id === p.workspace_id));
+
+  function buildGroups(
+    wss: { id: string; label: string; number: number }[],
+    panes: Instance[],
+  ): Group[] {
+    return wss.map((w) => ({
+      id: w.id,
+      label: w.label || `workspace ${w.number}`,
+      number: w.number,
+      panes: panes.filter((p) => p.workspace_id === w.id),
+    }));
   }
 
-  function createTerminal() {
-    if (creating || $connState !== "connected") return;
-    creating = true;
-    connection.createSession("web", undefined, (sid) => {
-      creating = false;
+  function createWorkspace() {
+    if (creatingWorkspace || $connState !== "connected") return;
+    creatingWorkspace = true;
+    connection.createWorkspace("web", undefined, (sid) => {
+      creatingWorkspace = false;
+      expanded[sid] = true;
       openWindow(sid);
     });
-    // Safety: if no reply arrives, re-enable after a while.
-    setTimeout(() => (creating = false), 5000);
+    setTimeout(() => (creatingWorkspace = false), 5000);
+  }
+
+  function createPane(groupId: string) {
+    if (creatingPane || $connState !== "connected") return;
+    creatingPane = groupId;
+    expanded[groupId] = true;
+    connection.createPane(groupId, undefined, (sid) => {
+      creatingPane = null;
+      openWindow(sid);
+    });
+    setTimeout(() => (creatingPane === groupId && (creatingPane = null)), 5000);
+  }
+
+  function killPane(e: { stopPropagation(): void }, paneId: string) {
+    e.stopPropagation();
+    connection.killPane(paneId);
   }
 </script>
 
@@ -38,55 +77,117 @@
     class="absolute right-2 top-2 z-10 w-72 max-w-[calc(100vw-1rem)] overflow-hidden rounded-xl border border-slate-700 bg-slate-900/95 shadow-2xl backdrop-blur"
   >
     <div class="flex items-center justify-between border-b border-slate-800 px-3 py-2">
-      <span class="text-xs font-semibold text-slate-300">在线会话</span>
-      <span class="text-xs text-slate-500">{$list.length}</span>
+      <span class="text-xs font-semibold text-slate-300">会话</span>
+      <span class="text-xs text-slate-500">{$workspaces.length} ws · {$list.length} pane</span>
     </div>
-    <div class="flex max-h-[50vh] flex-col gap-1 overflow-auto p-2">
+    <div class="flex max-h-[60vh] flex-col overflow-auto p-2">
+      <!-- workspace → pane tree -->
+      {#each groups as g (g.id)}
+        <div class="mb-0.5">
+          <!-- workspace header -->
+          <div
+            class="group flex w-full items-center gap-1 rounded-lg px-1 py-1 text-xs text-slate-400 hover:bg-slate-800/70"
+          >
+            <button
+              class="flex min-w-0 flex-1 items-center gap-1 text-left"
+              on:click={() => toggle(g.id)}
+              title="展开/收起"
+            >
+              <span class="w-3 shrink-0 text-slate-500">{isOpen(g.id) ? "▾" : "▸"}</span>
+              <span class="min-w-0 flex-1 truncate font-semibold text-slate-300">{g.label}</span>
+              <span class="shrink-0 text-[10px] text-slate-600">{g.panes.length}</span>
+            </button>
+            <button
+              class="shrink-0 rounded px-1 text-sm text-slate-500 hover:bg-slate-700 hover:text-slate-200 disabled:opacity-40"
+              disabled={$connState !== "connected" || creatingPane === g.id}
+              title="在此 workspace 新建终端"
+              on:click={() => createPane(g.id)}
+            >
+              {creatingPane === g.id ? "…" : "+"}
+            </button>
+          </div>
+          <!-- panes -->
+          {#if isOpen(g.id)}
+            <div class="ml-3 flex flex-col gap-0.5 border-l border-slate-800 pl-1">
+              {#each g.panes as p (p.sid)}
+                <button
+                  class="flex w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-left text-sm {$focusPrefix ===
+                  p.sid
+                    ? "bg-blue-500/10 text-slate-100"
+                    : $windows.has(p.sid)
+                      ? "text-slate-300 hover:bg-slate-800"
+                      : "text-slate-400 hover:bg-slate-800"}"
+                  on:click={() => openWindow(p.sid)}
+                >
+                  <span class="h-1.5 w-1.5 shrink-0 rounded-full {stateColor(p.agent_status)}"></span>
+                  <span class="min-w-0 flex-1 truncate">{p.title || p.pane_id}</span>
+                  {#if $windows.has(p.sid)}
+                    <span class="shrink-0 text-[9px] text-slate-600">画布</span>
+                  {/if}
+                  {#if p.state}
+                    <span
+                      class="shrink-0 text-[9px] {p.state === 'waiting'
+                        ? 'text-yellow-400'
+                        : 'text-green-400'}"
+                    >
+                      {p.state}
+                    </span>
+                  {/if}
+                  <span
+                    class="shrink-0 rounded px-0.5 text-[10px] text-slate-600 hover:bg-red-900/60 hover:text-red-300"
+                    title="关闭此 pane"
+                    role="button"
+                    tabindex="0"
+                    on:click|stopPropagation={(e) => killPane(e, p.pane_id)}
+                    on:keydown={(e) => e.key === 'Enter' && killPane(e, p.pane_id)}
+                  >
+                    ×
+                  </span>
+                </button>
+              {:else}
+                <p class="px-1.5 py-0.5 text-[10px] text-slate-600">(空 workspace)</p>
+              {/each}
+            </div>
+          {/if}
+        </div>
+      {:else}
+        {#if $connState !== "connected"}
+          <p class="px-2 py-4 text-center text-xs text-slate-500">未连接网关——点顶部状态栏配置</p>
+        {/if}
+      {/each}
+
+      <!-- orphan panes (workspace list not arrived yet) -->
+      {#if orphans.length > 0}
+        <div class="mb-0.5 mt-1">
+          <div class="flex w-full items-center gap-1 rounded-lg px-1 py-1 text-xs text-slate-400">
+            <span class="w-3 shrink-0 text-slate-500">▾</span>
+            <span class="min-w-0 flex-1 font-semibold text-slate-300">其他</span>
+            <span class="shrink-0 text-[10px] text-slate-600">{orphans.length}</span>
+          </div>
+          <div class="ml-3 flex flex-col gap-0.5 border-l border-slate-800 pl-1">
+            {#each orphans as p (p.sid)}
+              <button
+                class="flex w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-left text-sm text-slate-400 hover:bg-slate-800"
+                on:click={() => openWindow(p.sid)}
+              >
+                <span class="h-1.5 w-1.5 shrink-0 rounded-full {stateColor(p.agent_status)}"></span>
+                <span class="min-w-0 flex-1 truncate">{p.title || p.pane_id}</span>
+              </button>
+            {/each}
+          </div>
+        </div>
+      {/if}
+
+      <!-- new workspace -->
       <button
-        class="flex w-full items-center justify-center gap-1 rounded-lg border border-dashed border-slate-600 px-2 py-1.5 text-sm text-slate-300 hover:bg-slate-800 disabled:opacity-40"
-        disabled={$connState !== "connected" || creating}
-        title="在 herdr 里新建一个终端"
-        on:click={createTerminal}
+        class="mt-1 flex w-full items-center justify-center gap-1 rounded-lg border border-dashed border-slate-600 px-2 py-1.5 text-sm text-slate-300 hover:bg-slate-800 disabled:opacity-40"
+        disabled={$connState !== "connected" || creatingWorkspace}
+        title="新建 workspace(带一个终端)"
+        on:click={createWorkspace}
       >
         <span class="text-base leading-none">+</span>
-        {creating ? "创建中…" : "新建终端"}
+        {creatingWorkspace ? "创建中…" : "新建 workspace"}
       </button>
-      {#each $list as ins (ins.sid)}
-        <button
-          class="flex w-full items-center gap-2 rounded-lg border px-2 py-1.5 text-left text-sm {$focusPrefix ===
-          ins.sid
-            ? "border-blue-500 bg-blue-500/10"
-            : $windows.has(ins.sid)
-              ? "border-slate-600 bg-slate-800/60"
-              : "border-slate-700 hover:bg-slate-800"}"
-          on:click={() => openWindow(ins.sid)}
-        >
-          <span class="h-2 w-2 shrink-0 rounded-full {stateColor(ins.state)}"></span>
-          <span class="min-w-0 flex-1 truncate text-slate-200">
-            {ins.title || shortId(ins.sid)}
-          </span>
-          {#if $windows.has(ins.sid)}
-            <span class="shrink-0 rounded bg-slate-700 px-1 text-[10px] text-slate-300">画布中</span>
-          {/if}
-          {#if ins.state}
-            <span
-              class="shrink-0 text-[10px] {ins.state === 'waiting' ? 'text-yellow-400' : 'text-green-400'}"
-            >
-              {ins.state}
-            </span>
-          {/if}
-        </button>
-      {:else}
-        <p class="px-2 py-4 text-center text-xs text-slate-500">
-          {#if $connState === "connected"}
-            没有在线会话——点上面「新建终端」开一个
-          {:else if $connState === "connecting" || $connState === "reconnecting"}
-            正在连接网关…
-          {:else}
-            未连接网关——点顶部状态栏配置
-          {/if}
-        </p>
-      {/each}
     </div>
   </div>
 {/if}

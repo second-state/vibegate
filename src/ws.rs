@@ -59,8 +59,11 @@ async fn control_sock(state: Arc<WsState>, mut sock: WebSocket) {
         tokio::select! {
             msg = rx.next() => {
                 let Some(Ok(Message::Text(text))) = msg else { break };
-                if handle_control(&state, &out_tx, text.as_str()).await.is_err() {
-                    break;
+                // A failed control op must not tear down the connection —
+                // report it as an error message and keep serving.
+                if let Err(e) = handle_control(&state, &out_tx, text.as_str()).await {
+                    let reply = json!({"type":"error","message":e.to_string()});
+                    let _ = out_tx.send(Message::text(reply.to_string())).await;
                 }
             }
             fired = async move {
@@ -95,6 +98,7 @@ struct ControlMsg {
     label: Option<String>,
     cwd: Option<String>,
     workspace_id: Option<String>,
+    pane_id: Option<String>,
 }
 
 async fn handle_control(
@@ -142,6 +146,54 @@ async fn handle_control(
                 "workspace_id": workspace_id,
             });
             out.send(Message::text(reply.to_string())).await?;
+            Ok(())
+        }
+        "create_pane" => {
+            let Some(ws_id) = msg.workspace_id.clone() else {
+                return send_err(out, "create_pane requires workspace_id").await;
+            };
+            // Snapshot the panes already in the workspace, then wait for a new
+            // one to appear (tab.create's reply does not carry pane ids).
+            let before: std::collections::HashSet<String> = state
+                .herdr
+                .panes()
+                .await?
+                .into_iter()
+                .filter(|p| p.workspace_id == ws_id)
+                .map(|p| p.terminal_id)
+                .collect();
+            state.herdr.create_tab(&ws_id, msg.cwd.as_deref()).await?;
+            let mut sid = None;
+            for _ in 0..10 {
+                tokio::time::sleep(std::time::Duration::from_millis(150)).await;
+                for p in state.herdr.panes().await.unwrap_or_default() {
+                    if p.workspace_id == ws_id && !before.contains(&p.terminal_id) {
+                        sid = Some(p.terminal_id);
+                        break;
+                    }
+                }
+                if sid.is_some() {
+                    break;
+                }
+            }
+            let Some(sid) = sid else {
+                return send_err(out, "tab created but no pane appeared").await;
+            };
+            let reply = json!({
+                "type": "created_pane",
+                "sid": sid,
+                "workspace_id": ws_id,
+            });
+            out.send(Message::text(reply.to_string())).await?;
+            Ok(())
+        }
+        "kill_pane" => {
+            let Some(pane_id) = msg.pane_id.clone() else {
+                return send_err(out, "kill_pane requires pane_id").await;
+            };
+            state.herdr.close_pane(&pane_id).await?;
+            out.send(Message::text(json!({"type":"killed_pane"}).to_string()))
+                .await?;
             Ok(())
         }
         "kill" => {

@@ -97,9 +97,9 @@ async fn run(
             let mut last = String::new();
             let mut counter: u64 = 0;
             loop {
-                let json = match herdr.panes().await {
-                    Ok(panes) => {
-                        let panes: Vec<_> = panes
+                let json = match herdr.snapshot().await {
+                    Ok(snapshot) => {
+                        let panes: Vec<_> = herdr::panes_from_snapshot(&snapshot)
                             .into_iter()
                             .map(|p| {
                                 json!({
@@ -113,11 +113,23 @@ async fn run(
                                 })
                             })
                             .collect();
-                        json!({"type":"sessions","panes":panes}).to_string()
+                        let workspaces: Vec<_> = herdr::workspaces_from_snapshot(&snapshot)
+                            .into_iter()
+                            .map(|w| {
+                                json!({
+                                    "id": w.workspace_id,
+                                    "label": w.label,
+                                    "number": w.number,
+                                    "pane_count": w.pane_count,
+                                })
+                            })
+                            .collect();
+                        json!({"type":"sessions","panes":panes,"workspaces":workspaces}).to_string()
                     }
                     Err(e) => {
                         tracing::warn!("snapshot failed: {e}");
-                        json!({"type":"sessions","panes":[],"error":e.to_string()}).to_string()
+                        json!({"type":"sessions","panes":[],"workspaces":[],"error":e.to_string()})
+                            .to_string()
                     }
                 };
                 if json != last {

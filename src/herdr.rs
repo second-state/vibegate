@@ -74,30 +74,33 @@ impl Herdr {
         Ok(v.get("result").cloned().unwrap_or(Value::Null))
     }
 
+    /// Full `session.snapshot` result (`snapshot` object).
+    pub async fn snapshot(&self) -> Result<Value> {
+        let result = self.call("session.snapshot", json!({})).await?;
+        result
+            .get("snapshot")
+            .cloned()
+            .context("session_snapshot missing `snapshot`")
+    }
+
     /// `session.snapshot` narrowed to panes.
     pub async fn panes(&self) -> Result<Vec<PaneInfo>> {
-        let result = self.call("session.snapshot", json!({})).await?;
-        let snapshot = result
-            .get("snapshot")
-            .with_context(|| "session_snapshot missing `snapshot`")?;
-        let Some(panes) = snapshot.get("panes").and_then(Value::as_array) else {
-            return Ok(Vec::new());
-        };
-        Ok(panes
-            .iter()
-            .filter_map(|p| {
-                Some(PaneInfo {
-                    pane_id: str_of(p, "pane_id")?,
-                    terminal_id: str_of(p, "terminal_id")?,
-                    title: str_of(p, "terminal_title_stripped")
-                        .unwrap_or_default(),
-                    agent: p.get("agent").and_then(Value::as_str).map(String::from),
-                    agent_status: str_of(p, "agent_status").unwrap_or_else(|| "unknown".into()),
-                    cwd: str_of(p, "cwd").unwrap_or_default(),
-                    workspace_id: str_of(p, "workspace_id").unwrap_or_default(),
-                })
-            })
-            .collect())
+        let snapshot = self.snapshot().await?;
+        Ok(panes_from_snapshot(&snapshot))
+    }
+
+    /// Create a fresh shell tab (and its pane) inside an existing workspace.
+    pub async fn create_tab(&self, workspace_id: &str, cwd: Option<&str>) -> Result<Value> {
+        self.call(
+            "tab.create",
+            json!({"workspace_id": workspace_id, "cwd": cwd, "focus": false}),
+        )
+        .await
+    }
+
+    /// Close a single pane (herdr kills its process group).
+    pub async fn close_pane(&self, pane_id: &str) -> Result<Value> {
+        self.call("pane.close", json!({"pane_id": pane_id})).await
     }
 
     /// Create a workspace with a fresh shell pane; returns the new workspace id.
@@ -117,6 +120,56 @@ impl Herdr {
 
 fn str_of(v: &Value, key: &str) -> Option<String> {
     v.get(key).and_then(Value::as_str).map(String::from)
+}
+
+/// Extract panes from a snapshot object.
+pub fn panes_from_snapshot(snapshot: &Value) -> Vec<PaneInfo> {
+    let Some(panes) = snapshot.get("panes").and_then(Value::as_array) else {
+        return Vec::new();
+    };
+    panes
+        .iter()
+        .filter_map(|p| {
+            Some(PaneInfo {
+                pane_id: str_of(p, "pane_id")?,
+                terminal_id: str_of(p, "terminal_id")?,
+                title: str_of(p, "terminal_title_stripped").unwrap_or_default(),
+                agent: p.get("agent").and_then(Value::as_str).map(String::from),
+                agent_status: str_of(p, "agent_status").unwrap_or_else(|| "unknown".into()),
+                cwd: str_of(p, "cwd").unwrap_or_default(),
+                workspace_id: str_of(p, "workspace_id").unwrap_or_default(),
+            })
+        })
+        .collect()
+}
+
+/// One workspace from a snapshot, narrowed for the drawer tree.
+#[derive(Debug, Clone)]
+pub struct WorkspaceInfo {
+    pub workspace_id: String,
+    pub label: String,
+    pub number: u64,
+    pub pane_count: u64,
+}
+
+/// Extract workspaces from a snapshot object, ordered by number.
+pub fn workspaces_from_snapshot(snapshot: &Value) -> Vec<WorkspaceInfo> {
+    let Some(workspaces) = snapshot.get("workspaces").and_then(Value::as_array) else {
+        return Vec::new();
+    };
+    let mut out: Vec<WorkspaceInfo> = workspaces
+        .iter()
+        .filter_map(|w| {
+            Some(WorkspaceInfo {
+                workspace_id: str_of(w, "workspace_id")?,
+                label: str_of(w, "label").unwrap_or_default(),
+                number: w.get("number").and_then(Value::as_u64).unwrap_or(0),
+                pane_count: w.get("pane_count").and_then(Value::as_u64).unwrap_or(0),
+            })
+        })
+        .collect();
+    out.sort_by_key(|w| w.number);
+    out
 }
 
 fn dirs_or_home() -> PathBuf {

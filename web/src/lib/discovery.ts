@@ -12,10 +12,13 @@ import { connection } from "./connection";
 export type Instance = {
   /** herdr terminal id — same as the old "prefix" role. */
   sid: string;
+  pane_id: string;
   title: string;
   /** "working" | "waiting" for agents; empty for plain shells. */
   state: string;
   agent: string | null;
+  /** Raw herdr agent status (working/blocked/idle/done/unknown). */
+  agent_status: string;
   cwd: string;
   workspace_id: string;
 };
@@ -26,9 +29,11 @@ export const discovery = {
     panes
       .map((p): Instance => ({
         sid: p.sid,
+        pane_id: p.pane_id,
         title: p.title || p.sid,
         state: mapState(p.agent_status, p.agent),
         agent: p.agent,
+        agent_status: p.agent_status,
         cwd: p.cwd,
         workspace_id: p.workspace_id,
       }))
