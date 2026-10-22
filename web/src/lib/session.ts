@@ -11,6 +11,7 @@
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebglAddon } from "@xterm/addon-webgl";
+import { UnicodeGraphemesAddon } from "@xterm/addon-unicode-graphemes";
 import { writable, type Writable } from "svelte/store";
 import { TERM_FONT_FAMILY, TERM_FONT_SIZE, TERM_THEME } from "./theme";
 
@@ -65,6 +66,15 @@ export class TerminalSession {
       this.term.loadAddon(webgl);
     } catch {
       // WebGL unavailable — the DOM renderer still works.
+    }
+    // Grapheme clustering so emoji (ZWJ sequences, skin tones) measure as
+    // one double-width cell instead of broken halves. (Kitty images: the
+    // herdr attach path does not deliver image data at all, so no image
+    // addon for now.)
+    try {
+      this.term.loadAddon(new UnicodeGraphemesAddon());
+    } catch {
+      /* fall back to xterm's default width tables */
     }
     this.fit();
     this.#open();

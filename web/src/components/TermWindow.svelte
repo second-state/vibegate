@@ -12,7 +12,7 @@
     MIN_H,
   } from "../lib/canvas";
   import { discovery } from "../lib/discovery";
-import { stopNative } from "../lib/actions";
+import { stopNative, nativePointerDown } from "../lib/actions";
   import { connection } from "../lib/connection";
 
   export let prefix: string;
@@ -139,7 +139,7 @@ import { stopNative } from "../lib/actions";
     style:top="{rect.y}px"
     style:width="{rect.w}px"
     style:height="{rect.h}px"
-    on:pointerdown|stopPropagation={() => focusPrefix.set(prefix)}
+    use:nativePointerDown={() => focusPrefix.set(prefix)}
     use:stopNative={["dblclick"]}
     role="presentation"
   >
@@ -147,7 +147,7 @@ import { stopNative } from "../lib/actions";
     <div
       class="flex h-8 shrink-0 cursor-grab select-none items-center gap-2 border-b border-slate-800 bg-[#1f2233] px-2 active:cursor-grabbing"
       role="presentation"
-      on:pointerdown={headerDown}
+      use:nativePointerDown={headerDown}
       on:pointermove={headerMove}
       on:pointerup={headerUp}
       on:pointercancel={headerUp}
@@ -199,7 +199,7 @@ import { stopNative } from "../lib/actions";
     <div
       class="absolute bottom-0 right-0 h-4 w-4 cursor-nwse-resize touch-none"
       role="presentation"
-      on:pointerdown={resizeDown}
+      use:nativePointerDown={resizeDown}
       on:pointermove={resizeMove}
       on:pointerup={resizeUp}
       on:pointercancel={resizeUp}

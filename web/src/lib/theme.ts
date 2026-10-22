@@ -26,5 +26,5 @@ export const TERM_THEME: ITheme = {
 };
 
 export const TERM_FONT_FAMILY =
-  '"JetBrains Mono", "Fira Code", ui-monospace, Menlo, Consolas, monospace';
+  '"JetBrains Mono", "Fira Code", ui-monospace, Menlo, Consolas, monospace, "Noto Color Emoji", "Apple Color Emoji", "Segoe UI Emoji"';
 export const TERM_FONT_SIZE = 14;

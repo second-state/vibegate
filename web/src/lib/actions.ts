@@ -22,3 +22,27 @@ export function stopNative(node: HTMLElement, events: string[] = ["pointerdown",
     },
   };
 }
+
+/**
+ * Handle pointerdown with a NATIVE listener (stopping propagation), so the
+ * canvas gesture layer never sees touches over this element. Use this for
+ * every pointerdown handler inside the canvas — Svelte 5's delegated
+ * `on:pointerdown|stopPropagation` cannot stop the native bubble, and
+ * use-gesture's preventDefault then suppresses synthesized mouse events and
+ * focus (mobile soft keyboard never opens).
+ */
+export function nativePointerDown(
+  node: HTMLElement,
+  handler: (e: PointerEvent) => void,
+) {
+  const h = (e: PointerEvent) => {
+    e.stopPropagation();
+    handler(e);
+  };
+  node.addEventListener("pointerdown", h);
+  return {
+    destroy() {
+      node.removeEventListener("pointerdown", h);
+    },
+  };
+}

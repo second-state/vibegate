@@ -32,12 +32,8 @@ pub async fn term_handler(
 }
 
 async fn terminal_sock(terminal_id: String, cols: u16, rows: u16, sock: WebSocket) {
-    let pty = match GatePty::spawn(
-        "herdr",
-        &["terminal", "attach", &terminal_id],
-        (rows, cols),
-    )
-    .await
+    let pty = match GatePty::spawn("herdr", &["terminal", "attach", &terminal_id], (rows, cols))
+        .await
     {
         Ok(p) => p,
         Err(e) => {
