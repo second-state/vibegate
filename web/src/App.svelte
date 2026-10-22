@@ -7,9 +7,10 @@
 
 <div class="fixed inset-0 flex flex-col text-slate-200 select-none">
   <ConnectBar />
+  <!-- Keybar lives at the top: mobile soft keyboards cover the bottom. -->
+  <Keybar />
   <div class="relative flex-1 min-h-0">
     <Canvas />
     <SessionDrawer />
   </div>
-  <Keybar />
 </div>

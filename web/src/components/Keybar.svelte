@@ -34,7 +34,7 @@
 
 {#if $focusPrefix}
   <div
-    class="z-20 flex items-center gap-1 overflow-x-auto border-t border-slate-800 bg-[#16161e] px-2 py-1.5"
+    class="z-20 flex items-center gap-1 overflow-x-auto border-b border-slate-800 bg-[#16161e] px-2 py-1.5"
   >
     <button
       class="{keyCls} font-bold"
