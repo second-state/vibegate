@@ -37,6 +37,8 @@ export class TerminalSession {
   private cols = 80;
   private rows = 24;
   private syncTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Input typed while the socket was connecting; flushed on open. */
+  #pendingInput: string[] = [];
 
   /** Current stream status as a plain value (mirror of the store). */
   private statusValue: SessionStatus = "connecting";
@@ -97,15 +99,22 @@ export class TerminalSession {
       // Fit now that we know the real container size; the resize text frame
       // makes herdr repaint at the right grid.
       this.fit();
+      // Flush input typed while the socket was connecting.
+      if (this.#pendingInput.length) {
+        const blob = this.#pendingInput.join("");
+        this.#pendingInput = [];
+        this.#sendInput(blob);
+      }
     };
     ws.onmessage = (ev) => {
       if (ev.data instanceof ArrayBuffer) {
         this.term.write(new Uint8Array(ev.data));
-      } else if (typeof ev.data === "string") {
-        // Only text we accept is the resize echo path; nothing to render.
       }
+      // Text frames carry no stream data (attach failures just close below).
     };
     ws.onclose = () => {
+      // A lost gateway and a closed pane both land here; the ⟳ in the window
+      // header (reopen) is the way back — no automatic retries.
       if (this.statusValue !== "error") this.set_status("ended");
     };
     ws.onerror = () => this.set_status("error");
@@ -177,6 +186,17 @@ export class TerminalSession {
     this.term.dispose();
   }
 
+  /** Re-open the terminal stream after a disconnect (fresh attach). */
+  reopen() {
+    if (this.ws) {
+      this.ws.onclose = null;
+      this.ws.close();
+      this.ws = null;
+    }
+    this.status.set("connecting");
+    this.#open();
+  }
+
   /** xterm keyboard output (soft keyboard, real keys, paste): wrap with the
    *  latched sticky modifiers — the mobile keyboard has no Ctrl/Alt — then
    *  clear them. One keypress, one use. */
@@ -191,7 +211,14 @@ export class TerminalSession {
   }
 
   #sendInput(data: string) {
-    if (this.ws?.readyState !== WebSocket.OPEN) return;
+    if (this.ws?.readyState !== WebSocket.OPEN) {
+      // Still connecting: queue so nothing typed during a reconnect is lost.
+      if (this.ws && this.ws.readyState === WebSocket.CONNECTING) {
+        this.#pendingInput.push(data);
+        if (this.#pendingInput.length > 64) this.#pendingInput.shift();
+      }
+      return;
+    }
     this.ws.send(new TextEncoder().encode(data));
   }
 }

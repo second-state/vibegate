@@ -29,6 +29,18 @@ import { stopNative, nativePointerDown } from "../lib/actions";
   $: rect = $windows.get(prefix);
   $: instance = $instances.find((i) => i.sid === prefix);
   $: focused = $focusPrefix === prefix;
+  const connState = connection.state;
+
+  // Pane gone from herdr (judged only while the gateway is connected, so a
+  // blip cannot wipe windows) → remove the window from the canvas.
+  $: if (
+    (status === "ended" || status === "error") &&
+    $connState === "connected" &&
+    rect &&
+    !instance
+  ) {
+    closeWindow(prefix);
+  }
 
   // Refit when the window is resized (initial fit happens in attach()).
   let lastW = 0;
@@ -184,6 +196,16 @@ import { stopNative, nativePointerDown } from "../lib/actions";
       on:pointerup={headerUp}
       on:pointercancel={headerUp}
     >
+      {#if status === "ended" || status === "error"}
+        <button
+          class="shrink-0 rounded px-1 text-sm text-blue-400 hover:bg-slate-700"
+          title="重新连接"
+          use:stopNative={["pointerdown"]}
+          on:mousedown={(e) => e.button === 0 && session?.reopen()}
+        >
+          ⟳
+        </button>
+      {/if}
       <span
         class="h-2 w-2 shrink-0 rounded-full {state === 'working'
           ? 'bg-green-400'
@@ -225,11 +247,10 @@ import { stopNative, nativePointerDown } from "../lib/actions";
     </div>
 
     {#if status === "ended" || status === "error"}
-      <div class="absolute inset-0 top-8 flex items-center justify-center bg-[#16161e]/80">
-        <div class="rounded-lg border border-slate-700 bg-slate-900 px-4 py-3 text-center text-sm">
-          <p class="mb-1 text-slate-300">{status === "error" ? "连接出错" : "会话已结束"}</p>
-          <p class="text-xs text-slate-500">远端面板已关闭,窗口可以关掉了</p>
-        </div>
+      <div class="pointer-events-none absolute inset-0 top-8 z-10 flex items-center justify-center bg-[#16161e]/85">
+        <p class="text-xs text-slate-400">
+          {#if instance}连接已断开——点标题栏 ⟳ 重新连接{:else}远端面板已关闭,窗口即将移除…{/if}
+        </p>
       </div>
     {/if}
 

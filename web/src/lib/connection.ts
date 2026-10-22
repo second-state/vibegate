@@ -130,9 +130,13 @@ class Connection {
         return;
       }
       if (msg.type === "sessions" && Array.isArray(msg.panes)) {
-        this.panes.set(msg.panes as PaneInfo[]);
-        if (Array.isArray(msg.workspaces)) {
-          this.workspaces.set(msg.workspaces as WorkspaceInfo[]);
+        // Skip error-poll results (e.g. herdr socket hiccup): an empty pane
+        // list from a failed snapshot must not prune live windows.
+        if (!msg.error) {
+          this.panes.set(msg.panes as PaneInfo[]);
+          if (Array.isArray(msg.workspaces)) {
+            this.workspaces.set(msg.workspaces as WorkspaceInfo[]);
+          }
         }
       } else if (msg.type === "error") {
         this.error.set(String(msg.message ?? "gateway error"));
