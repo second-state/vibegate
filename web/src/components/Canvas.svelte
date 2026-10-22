@@ -92,7 +92,7 @@
         <p class="mb-1 text-base text-slate-300">画布是空的</p>
         <p>
           {#if $connState === "connected"}
-            点右上角「会话」打开一个 vibetty 实例
+            点右上角「会话」打开一个终端窗口
           {:else}
             先在顶部连接 vibegate 网关
           {/if}

@@ -33,9 +33,6 @@ export class TerminalSession {
   private rows = 24;
   private syncTimer: ReturnType<typeof setTimeout> | null = null;
 
-  /** When true, keyboard input is not forwarded (view-only mode). */
-  readOnly = false;
-
   /** Current stream status as a plain value (mirror of the store). */
   private statusValue: SessionStatus = "connecting";
 
@@ -142,7 +139,6 @@ export class TerminalSession {
   }
 
   #sendInput(data: string) {
-    if (this.readOnly) return;
     if (this.ws?.readyState !== WebSocket.OPEN) return;
     this.ws.send(new TextEncoder().encode(data));
   }

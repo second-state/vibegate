@@ -12,6 +12,7 @@
     MIN_H,
   } from "../lib/canvas";
   import { discovery } from "../lib/discovery";
+import { stopNative } from "../lib/actions";
   import { connection } from "../lib/connection";
 
   export let prefix: string;
@@ -19,7 +20,6 @@
 
   let session: TerminalSession | null = null;
   let termEl: HTMLElement;
-  let readOnly = false;
   let status: SessionStatus = "connecting";
 
   const instances = discovery.list;
@@ -43,7 +43,20 @@
     registerSession(prefix, session);
     const unsubStatus = session.status.subscribe((s) => (status = s));
     session.attach(termEl);
+
+    // Keep browser focus on the terminal: an unhandled Tab moves focus out of
+    // xterm (in terminal-browser's electron shell the compositor then switches
+    // windows — looks exactly like Alt+Tab). Preventing the default lets the
+    // keydown still reach xterm, so the \t byte is sent as usual.
+    const guard = (e: KeyboardEvent) => {
+      if (e.key === "Tab" && !e.ctrlKey && !e.altKey && !e.metaKey) {
+        e.preventDefault();
+      }
+    };
+    termEl.addEventListener("keydown", guard, true);
+
     return () => {
+      termEl.removeEventListener("keydown", guard);
       unsubStatus();
       unregisterSession(prefix);
       session!.close();
@@ -104,12 +117,6 @@
     resizing = null;
   }
 
-  function toggleReadOnly() {
-    readOnly = !readOnly;
-    if (session) session.readOnly = readOnly;
-    focusPrefix.set(prefix);
-  }
-
   // Wheel over the focused terminal scrolls its own scrollback instead of
   // panning the canvas; unfocused windows let the canvas pan (same as sshx).
   function wheel(e: WheelEvent) {
@@ -130,7 +137,7 @@
     style:width="{rect.w}px"
     style:height="{rect.h}px"
     on:pointerdown|stopPropagation={() => focusPrefix.set(prefix)}
-    on:dblclick|stopPropagation
+    use:stopNative={["dblclick"]}
     role="presentation"
   >
     <!-- Header / drag handle -->
@@ -154,18 +161,10 @@
         {title}
       </span>
       <button
-        class="shrink-0 rounded px-1 text-xs {readOnly ? 'text-yellow-400' : 'text-slate-500 hover:text-slate-300'}"
-        title={readOnly ? "只读模式(点击开启键盘输入)" : "点击切换为只读模式"}
-        on:pointerdown|stopPropagation
-        on:click={toggleReadOnly}
-      >
-        👁
-      </button>
-      <button
         class="shrink-0 rounded px-1.5 text-sm text-slate-500 hover:text-red-400"
         title="关闭窗口(不影响远端会话)"
-        on:pointerdown|stopPropagation
-        on:click={() => closeWindow(prefix)}
+        use:stopNative={["pointerdown", "dblclick"]}
+        on:mousedown={(e) => e.button === 0 && closeWindow(prefix)}
       >
         ×
       </button>
@@ -175,12 +174,6 @@
     <div class="min-h-0 flex-1 bg-[#1a1b26]">
       <div bind:this={termEl} class="h-full w-full" on:wheel={wheel}></div>
     </div>
-
-    {#if readOnly && focused}
-      <div class="pointer-events-none absolute inset-x-0 top-8 flex justify-center">
-        <span class="rounded-b bg-yellow-900/80 px-2 py-0.5 text-[10px] text-yellow-200">只读</span>
-      </div>
-    {/if}
 
     {#if status === "ended" || status === "error"}
       <div class="absolute inset-0 top-8 flex items-center justify-center bg-[#16161e]/80">

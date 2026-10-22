@@ -3,13 +3,18 @@ import "./app.css";
 import "@xterm/xterm/css/xterm.css";
 import App from "./App.svelte";
 import { connection } from "./lib/connection";
-import { sessions } from "./lib/canvas";
+import {
+  sessions,
+  windows,
+  focusPrefix,
+  closeWindow,
+} from "./lib/canvas";
 
 const app = mount(App, {
   target: document.getElementById("app")!,
 });
 
 // Debug handle for console/eval-driven testing.
-(window as any).__vibeview = { connection, sessions };
+(window as any).__vibeview = { connection, sessions, windows, focusPrefix, closeWindow };
 
 export default app;
