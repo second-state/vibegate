@@ -13,7 +13,8 @@ import { FitAddon } from "@xterm/addon-fit";
 import { WebglAddon } from "@xterm/addon-webgl";
 import { UnicodeGraphemesAddon } from "@xterm/addon-unicode-graphemes";
 import { writable, type Writable } from "svelte/store";
-import { TERM_FONT_FAMILY, TERM_FONT_SIZE, TERM_THEME } from "./theme";
+import { TERM_FONT_FAMILY, TERM_FONT_SIZE, TERM_PRESETS } from "./theme";
+import { appearance, getAppearance, resolveBgUrl } from "./appearance";
 
 const SYNC_DEBOUNCE_MS = 200;
 
@@ -45,11 +46,14 @@ export class TerminalSession {
     this.term = new Terminal({
       fontFamily: TERM_FONT_FAMILY,
       fontSize: TERM_FONT_SIZE,
-      theme: TERM_THEME,
+      theme: this.#resolvedTheme(),
+      allowTransparency: true,
       cursorBlink: true,
       allowProposedApi: true,
       scrollback: 2000,
     });
+    // Appearance (theme preset / terminal background image) applies live.
+    appearance.subscribe(() => this.#applyAppearance());
     this.fitAddon = new FitAddon();
     this.term.loadAddon(this.fitAddon);
     this.term.onData((data) => this.#sendInput(data));
@@ -133,6 +137,20 @@ export class TerminalSession {
   /** Send raw bytes (keyboard input / keybar), bypassing xterm's onData. */
   sendRaw(data: string) {
     this.#sendInput(data);
+  }
+
+  /** Resolve the xterm theme from the appearance settings: the preset colors,
+   *  with a transparent background when a terminal background image is set. */
+  #resolvedTheme() {
+    const a = getAppearance();
+    const preset = TERM_PRESETS[a.theme] ?? TERM_PRESETS["tokyo-night"];
+    const theme = { ...preset.theme };
+    if (a.termBg) theme.background = "#00000000";
+    return theme;
+  }
+
+  #applyAppearance() {
+    this.term.options.theme = this.#resolvedTheme();
   }
 
   /** Scroll the pane via PageUp/PageDown (reaches the running app). */

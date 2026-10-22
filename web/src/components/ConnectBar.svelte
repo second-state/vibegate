@@ -7,9 +7,12 @@
     mixedContentWarning,
   } from "../lib/connection";
   import { drawerOpen, filesOpen } from "../lib/canvas";
+  import { appearance, resolveBgUrl } from "../lib/appearance";
+  import { TERM_PRESETS } from "../lib/theme";
 
   let url = "";
   let showSettings = false;
+  let headerEl: HTMLElement;
 
   const connState = connection.state;
   const connError = connection.error;
@@ -17,6 +20,14 @@
   onMount(() => {
     url = loadGatewayUrl();
     if (url) doConnect();
+
+    // Click anywhere outside the header closes the settings panel.
+    const onDocClick = (e: MouseEvent) => {
+      if (!showSettings) return;
+      if (headerEl && !headerEl.contains(e.target as Node)) showSettings = false;
+    };
+    document.addEventListener("click", onDocClick, true);
+    return () => document.removeEventListener("click", onDocClick, true);
   });
 
   $: state = $connState;
@@ -55,39 +66,40 @@
   }
 </script>
 
-<header class="relative z-20 flex items-center gap-2 border-b border-slate-800 bg-[#16161e] px-3 py-2">
-  <div class="flex items-baseline gap-2">
-    <span class="text-sm font-bold tracking-wide text-slate-100">vibeview</span>
-    <span class="hidden text-xs text-slate-500 sm:inline">vibegate 终端查看端</span>
-  </div>
+<header
+  class="relative z-30 flex items-center gap-2 border-b border-slate-800 bg-[#16161e] px-3 py-2"
+  bind:this={headerEl}
+>
+  <!-- Hamburger menu: toggles the settings panel. -->
+  <button
+    class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-slate-300 hover:bg-slate-800 {showSettings
+      ? 'bg-slate-800'
+      : ''}"
+    title="菜单"
+    on:click={() => (showSettings = !showSettings)}
+  >
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+    >
+      <path d="M3 6h18M3 12h18M3 18h18" />
+    </svg>
+  </button>
 
   <button
-    class="ml-2 rounded-md px-2 py-0.5 text-xs font-medium {badge[state][1]}"
+    class="ml-1 rounded-md px-2 py-0.5 text-xs font-medium {badge[state][1]}"
     on:click={() => (showSettings = !showSettings)}
-    title="点击{state === 'connected' ? '查看' : '配置'}连接"
+    title="连接状态:{state === 'connected' ? '点击配置' : '点击配置连接'} · {url}"
   >
     {badge[state][0]}
   </button>
 
-  <!-- Gateway address: click to edit (desktop). -->
-  <button
-    class="hidden max-w-[24rem] items-center gap-1 truncate text-left text-xs text-slate-500 hover:text-slate-300 md:flex"
-    on:click={() => (showSettings = true)}
-    title="编辑 vibegate 地址"
-  >
-    <span class="truncate">{url || "未配置地址"}</span>
-    <span class="shrink-0 text-slate-600">✎</span>
-  </button>
-
   <div class="ml-auto flex items-center gap-2">
-    <!-- Edit connection (mobile: the address button above is hidden). -->
-    <button
-      class="rounded-md bg-slate-800 px-2 py-1 text-xs text-slate-300 hover:bg-slate-700 md:hidden"
-      on:click={() => (showSettings = true)}
-      title="编辑 vibegate 地址"
-    >
-      ✎
-    </button>
     <button
       class="rounded-md {$filesOpen
         ? 'bg-blue-600'
@@ -95,6 +107,7 @@
       on:click={() => {
         filesOpen.update((v) => !v);
         drawerOpen.set(false);
+        showSettings = false;
       }}
     >
       文件
@@ -106,6 +119,7 @@
       on:click={() => {
         drawerOpen.update((v) => !v);
         filesOpen.set(false);
+        showSettings = false;
       }}
     >
       会话
@@ -151,6 +165,44 @@
           >
             断开
           </button>
+        </div>
+
+        <!-- appearance -->
+        <div class="mt-2 border-t border-slate-700 pt-2">
+          <div class="mb-1.5 text-xs font-semibold text-slate-400">外观</div>
+          <label class="mb-1.5 flex items-center gap-2 text-xs text-slate-400">
+            终端主题
+            <select
+              class="flex-1 rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-sm text-slate-100 outline-none focus:border-blue-500"
+              value={$appearance.theme}
+              on:change={(e) => appearance.set({ ...$appearance, theme: e.currentTarget.value })}
+            >
+              {#each Object.entries(TERM_PRESETS) as [key, p] (key)}
+                <option value={key}>{p.label}</option>
+              {/each}
+            </select>
+          </label>
+          <label class="mb-1.5 flex items-center gap-2 text-xs text-slate-400">
+            画布背景
+            <input
+              class="min-w-0 flex-1 rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-slate-100 outline-none focus:border-blue-500"
+              placeholder="文件路径或图片 URL(留空 = 无)"
+              bind:value={$appearance.canvasBg}
+              spellcheck="false"
+            />
+          </label>
+          <label class="flex items-center gap-2 text-xs text-slate-400">
+            终端背景
+            <input
+              class="min-w-0 flex-1 rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-slate-100 outline-none focus:border-blue-500"
+              placeholder="文件路径或图片 URL(留空 = 无)"
+              bind:value={$appearance.termBg}
+              spellcheck="false"
+            />
+          </label>
+          <p class="text-[10px] text-slate-600">
+            相对路径走网关文件 API;图片窗口标题栏也有「画布」「终端」快捷设置按钮。
+          </p>
         </div>
       </div>
     </div>

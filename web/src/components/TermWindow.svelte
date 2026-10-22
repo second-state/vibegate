@@ -14,6 +14,7 @@
   import { discovery } from "../lib/discovery";
 import { stopNative, nativePointerDown } from "../lib/actions";
   import { connection } from "../lib/connection";
+  import { appearance, resolveBgUrl } from "../lib/appearance";
 
   export let prefix: string;
   export let zoom = 1;
@@ -212,9 +213,15 @@ import { stopNative, nativePointerDown } from "../lib/actions";
       </button>
     </div>
 
-    <!-- Terminal -->
-    <div class="min-h-0 flex-1 bg-[#1a1b26]">
-      <div bind:this={termEl} class="h-full w-full" on:wheel|capture={wheel}></div>
+    <!-- Terminal (optional background image behind the transparent xterm) -->
+    <div class="relative min-h-0 flex-1">
+      {#if $appearance.termBg}
+        <div
+          class="pointer-events-none absolute inset-0 bg-cover bg-center"
+          style:background-image={`url("${resolveBgUrl($appearance.termBg)}")`}
+        ></div>
+      {/if}
+      <div bind:this={termEl} class="relative h-full w-full" on:wheel|capture={wheel}></div>
     </div>
 
     {#if status === "ended" || status === "error"}

@@ -11,6 +11,7 @@
     IMAGE_KEY_PREFIX,
   } from "../lib/canvas";
   import { connection } from "../lib/connection";
+  import { appearance, resolveBgUrl } from "../lib/appearance";
   import TermWindow from "./TermWindow.svelte";
   import ImageWindow from "./ImageWindow.svelte";
 
@@ -72,6 +73,15 @@
   role="presentation"
   on:dblclick={fitFocused}
 >
+  <!-- Canvas background image (behind everything, dimmed for contrast). -->
+  {#if $appearance.canvasBg}
+    <div
+      class="pointer-events-none absolute inset-0 bg-cover bg-center"
+      style:background-image={`url("${resolveBgUrl($appearance.canvasBg)}")`}
+    ></div>
+    <div class="pointer-events-none absolute inset-0 bg-black/55"></div>
+  {/if}
+
   <!-- Dot grid background, moving with the canvas. -->
   <div
     class="pointer-events-none absolute inset-0"
