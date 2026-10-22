@@ -13,9 +13,11 @@ export type Appearance = {
   canvasBg: string;
   /** Background image for terminal windows: file path or http(s) URL. Empty = none. */
   termBg: string;
+  /** Keybar placement: float under the focused window, docked on top, hidden. */
+  keybar: "float" | "top" | "hidden";
 };
 
-const DEFAULTS: Appearance = { theme: "tokyo-night", canvasBg: "", termBg: "" };
+const DEFAULTS: Appearance = { theme: "tokyo-night", canvasBg: "", termBg: "", keybar: "float" };
 const KEY = "vibeview.appearance";
 
 function load(): Appearance {

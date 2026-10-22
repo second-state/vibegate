@@ -7,8 +7,14 @@
     mixedContentWarning,
   } from "../lib/connection";
   import { drawerOpen, filesOpen } from "../lib/canvas";
-  import { appearance, resolveBgUrl } from "../lib/appearance";
+  import { appearance, resolveBgUrl, type Appearance } from "../lib/appearance";
   import { TERM_PRESETS } from "../lib/theme";
+
+  const KEYBAR_MODES: { val: Appearance["keybar"]; label: string }[] = [
+    { val: "float", label: "悬浮" },
+    { val: "top", label: "置顶" },
+    { val: "hidden", label: "隐藏" },
+  ];
 
   let url = "";
   let showSettings = false;
@@ -200,6 +206,21 @@
               spellcheck="false"
             />
           </label>
+          <div class="flex items-center gap-2 text-xs text-slate-400">
+            辅助键
+            <div class="flex flex-1 overflow-hidden rounded-md border border-slate-700">
+              {#each KEYBAR_MODES as m (m.val)}
+                <button
+                  class="flex-1 py-1 text-xs {$appearance.keybar === m.val
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-slate-900 text-slate-300 hover:bg-slate-800'}"
+                  on:click={() => appearance.set({ ...$appearance, keybar: m.val })}
+                >
+                  {m.label}
+                </button>
+              {/each}
+            </div>
+          </div>
           <p class="text-[10px] text-slate-600">
             相对路径走网关文件 API;图片窗口标题栏也有「画布」「终端」快捷设置按钮。
           </p>
