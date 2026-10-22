@@ -3,7 +3,6 @@
   import {
     connection,
     loadGatewayUrl,
-    saveGatewayUrl,
     validateGatewayUrl,
     mixedContentWarning,
   } from "../lib/connection";
@@ -39,7 +38,6 @@
       connection.state.set("error");
       return;
     }
-    saveGatewayUrl(url.trim());
     connection.connect(url.trim());
   }
 

@@ -26,41 +26,19 @@ export type PaneInfo = {
   workspace_id: string;
 };
 
-const URL_KEY = "vibeview.gatewayUrl";
-
-const safeGet = (k: string): string | null => {
-  try {
-    return localStorage.getItem(k);
-  } catch {
-    return null;
-  }
-};
-const safeSet = (k: string, v: string) => {
-  try {
-    localStorage.setItem(k, v);
-  } catch {
-    /* private mode */
-  }
-};
-const safeDel = (k: string) => {
-  try {
-    localStorage.removeItem(k);
-  } catch {
-    /* ignore */
-  }
-};
-
-/** Saved gateway URL, with `?broker=`/`?url=`/`?gateway=` query override. */
+/**
+ * Default gateway URL: same origin as this page (`ws(s)://host/ws`), since
+ * vibegate serves the frontend and the WebSocket side by side. An explicit
+ * `?gateway=`/`?broker=`/`?url=` query parameter overrides it — useful when
+ * the frontend is hosted elsewhere.
+ */
 export function loadGatewayUrl(): string {
   const q = new URLSearchParams(window.location.search);
-  return (
-    q.get("gateway") || q.get("broker") || q.get("url") || safeGet(URL_KEY) || "ws://localhost:8480/ws"
-  );
-}
-
-export function saveGatewayUrl(url: string) {
-  if (url) safeSet(URL_KEY, url);
-  else safeDel(URL_KEY);
+  const explicit = q.get("gateway") || q.get("broker") || q.get("url");
+  if (explicit) return explicit;
+  if (!window.location.host) return "ws://localhost:8480/ws"; // file:// edge case
+  const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
+  return `${proto}//${window.location.host}/ws`;
 }
 
 /** Returns an error message, or null if the URL looks valid. */

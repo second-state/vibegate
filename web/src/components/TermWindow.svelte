@@ -21,6 +21,7 @@ import { stopNative } from "../lib/actions";
   let session: TerminalSession | null = null;
   let termEl: HTMLElement;
   let status: SessionStatus = "connecting";
+  let size = { cols: 0, rows: 0 };
 
   const instances = discovery.list;
 
@@ -42,6 +43,7 @@ import { stopNative } from "../lib/actions";
     session = new TerminalSession(prefix, connection.urlValue);
     registerSession(prefix, session);
     const unsubStatus = session.status.subscribe((s) => (status = s));
+    const unsubSize = session.size.subscribe((s) => (size = s));
     session.attach(termEl);
 
     // Keep browser focus on the terminal: an unhandled Tab moves focus out of
@@ -58,6 +60,7 @@ import { stopNative } from "../lib/actions";
     return () => {
       termEl.removeEventListener("keydown", guard);
       unsubStatus();
+      unsubSize();
       unregisterSession(prefix);
       session!.close();
       session = null;
@@ -160,6 +163,14 @@ import { stopNative } from "../lib/actions";
       <span class="min-w-0 flex-1 truncate text-xs font-medium text-slate-300" title={prefix}>
         {title}
       </span>
+      {#if size.cols > 0}
+        <span
+          class="shrink-0 rounded bg-slate-800 px-1 text-[10px] tabular-nums text-slate-400"
+          title="终端大小(列×行)"
+        >
+          {size.cols}×{size.rows}
+        </span>
+      {/if}
       <button
         class="shrink-0 rounded px-1.5 text-sm text-slate-500 hover:text-red-400"
         title="关闭窗口(不影响远端会话)"

@@ -24,6 +24,8 @@ export class TerminalSession {
   readonly fitAddon: FitAddon;
 
   readonly status: Writable<SessionStatus> = writable("connecting");
+  /** Current terminal grid size, mirrored from the last fit/sync. */
+  readonly size: Writable<{ cols: number; rows: number }> = writable({ cols: 80, rows: 24 });
   private set_status(v: SessionStatus) { this.statusValue = v; this.status.set(v); }
 
   private ws: WebSocket | null = null;
@@ -113,6 +115,7 @@ export class TerminalSession {
       if (cols === this.cols && rows === this.rows) return;
       this.cols = cols;
       this.rows = rows;
+      this.size.set({ cols, rows });
       this.ws?.send(JSON.stringify({ cols, rows }));
     }, SYNC_DEBOUNCE_MS);
   }
