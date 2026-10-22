@@ -197,7 +197,7 @@ import { stopNative, nativePointerDown } from "../lib/actions";
 
     <!-- Resize handle -->
     <div
-      class="absolute bottom-0 right-0 h-4 w-4 cursor-nwse-resize touch-none"
+      class="absolute -bottom-1.5 -right-1.5 h-9 w-9 cursor-nwse-resize touch-none"
       role="presentation"
       use:nativePointerDown={resizeDown}
       on:pointermove={resizeMove}
