@@ -5,7 +5,7 @@
     moveWindow,
     closeWindow,
   } from "../lib/canvas";
-  import { nativePointerDown } from "../lib/actions";
+  import { nativePointerDown, stopNative } from "../lib/actions";
   import { connection } from "../lib/connection";
 
   export let path: string; // full file path (without the "img:" key prefix)
@@ -53,8 +53,8 @@
     style:top="{rect.y}px"
     style:width="{rect.w}px"
     style:height="{rect.h}px"
-    on:pointerdown|stopPropagation={() => focusPrefix.set(key())}
-    on:dblclick|stopPropagation
+    use:nativePointerDown={() => focusPrefix.set(key())}
+    use:stopNative={["dblclick"]}
     role="presentation"
   >
     <div
@@ -79,15 +79,15 @@
         title="下载"
         href={url}
         download={name}
-        on:pointerdown|stopPropagation
+        use:stopNative={["pointerdown"]}
       >
         ⇩
       </a>
       <button
         class="shrink-0 rounded px-1.5 text-sm text-slate-500 hover:text-red-400"
         title="关闭窗口"
-        on:pointerdown|stopPropagation
-        on:click={() => closeWindow(key())}
+        use:stopNative={["pointerdown", "dblclick"]}
+        on:mousedown={(e) => e.button === 0 && closeWindow(key())}
       >
         ×
       </button>

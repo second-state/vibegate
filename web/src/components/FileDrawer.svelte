@@ -124,7 +124,7 @@
 
 {#if $filesOpen}
   <div
-    class="absolute right-2 top-2 z-10 flex max-h-[75vh] w-80 max-w-[calc(100vw-1rem)] flex-col overflow-hidden rounded-xl border border-slate-700 bg-slate-900/95 shadow-2xl backdrop-blur"
+    class="absolute inset-y-2 right-2 z-10 flex w-80 max-w-[calc(100vw-1rem)] flex-col overflow-hidden rounded-xl border border-slate-700 bg-slate-900/95 shadow-2xl backdrop-blur"
   >
     <div class="flex items-center justify-between border-b border-slate-800 px-3 py-2">
       <span class="text-xs font-semibold text-slate-300">文件</span>

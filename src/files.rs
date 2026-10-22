@@ -78,6 +78,30 @@ fn err(code: StatusCode, message: &str) -> Response {
     (code, message.to_string()).into_response()
 }
 
+/// Content type by extension — `<img>` tags only render SVG (and other
+/// non-raster formats) when served with a proper image/* type.
+fn content_type(path: &Path) -> &'static str {
+    match path
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(|e| e.to_ascii_lowercase())
+        .as_deref()
+    {
+        Some("png") => "image/png",
+        Some("jpg") | Some("jpeg") => "image/jpeg",
+        Some("gif") => "image/gif",
+        Some("webp") => "image/webp",
+        Some("avif") => "image/avif",
+        Some("bmp") => "image/bmp",
+        Some("svg") => "image/svg+xml",
+        Some("ico") => "image/x-icon",
+        Some("txt") | Some("md") | Some("log") => "text/plain; charset=utf-8",
+        Some("json") => "application/json",
+        Some("pdf") => "application/pdf",
+        _ => "application/octet-stream",
+    }
+}
+
 /// GET /api/files?path=...
 pub async fn list_handler(
     State(state): State<Arc<FilesState>>,
@@ -153,7 +177,10 @@ pub async fn download_handler(
         .unwrap_or_else(|| "download".to_string());
     let stream = tokio_util::io::ReaderStream::new(file);
     let mut headers = axum::http::HeaderMap::new();
-    headers.insert(header::CONTENT_TYPE, header::HeaderValue::from_static("application/octet-stream"));
+    headers.insert(
+        header::CONTENT_TYPE,
+        header::HeaderValue::from_static(content_type(&path)),
+    );
     if let Ok(v) = header::HeaderValue::from_str(&format!("attachment; filename=\"{name}\"")) {
         headers.insert(header::CONTENT_DISPOSITION, v);
     }

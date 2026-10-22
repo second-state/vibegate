@@ -72,13 +72,13 @@
 
 {#if $drawerOpen}
   <div
-    class="absolute right-2 top-2 z-10 w-72 max-w-[calc(100vw-1rem)] overflow-hidden rounded-xl border border-slate-700 bg-slate-900/95 shadow-2xl backdrop-blur"
+    class="absolute inset-y-2 right-2 z-10 flex w-72 max-w-[calc(100vw-1rem)] flex-col overflow-hidden rounded-xl border border-slate-700 bg-slate-900/95 shadow-2xl backdrop-blur"
   >
     <div class="flex items-center justify-between border-b border-slate-800 px-3 py-2">
       <span class="text-xs font-semibold text-slate-300">会话</span>
       <span class="text-xs text-slate-500">{$workspaces.length} ws · {$list.length} pane</span>
     </div>
-    <div class="flex max-h-[60vh] flex-col overflow-auto p-2">
+    <div class="flex min-h-0 flex-1 flex-col overflow-auto p-2">
       <!-- workspace → pane tree -->
       {#each groups as g (g.id)}
         <div class="mb-0.5">
