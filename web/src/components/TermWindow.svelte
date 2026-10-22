@@ -186,6 +186,7 @@ import { stopNative, nativePointerDown } from "../lib/actions";
     use:nativePointerDown={() => focusPrefix.set(prefix)}
     use:stopNative={["dblclick"]}
     role="presentation"
+    data-focused-window={focused ? "1" : undefined}
   >
     <!-- Header / drag handle -->
     <div

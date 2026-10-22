@@ -8,6 +8,7 @@ import {
   windows,
   focusPrefix,
   closeWindow,
+  zoomController,
 } from "./lib/canvas";
 
 const app = mount(App, {
@@ -15,6 +16,13 @@ const app = mount(App, {
 });
 
 // Debug handle for console/eval-driven testing.
-(window as any).__vibeview = { connection, sessions, windows, focusPrefix, closeWindow };
+(window as any).__vibeview = {
+  connection,
+  sessions,
+  windows,
+  focusPrefix,
+  closeWindow,
+  zoomController,
+};
 
 export default app;

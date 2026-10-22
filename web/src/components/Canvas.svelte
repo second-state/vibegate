@@ -8,6 +8,9 @@
     windows,
     zoomController,
     canvasZoom,
+    canvasMoved,
+    ANCHOR_X,
+    ANCHOR_Y,
     IMAGE_KEY_PREFIX,
   } from "../lib/canvas";
   import { connection } from "../lib/connection";
@@ -19,8 +22,6 @@
 
   // The window-world anchor: children live at world coords, the anchor sits
   // near the viewport center so world (0,0) appears centerish at zoom 1.
-  const ANCHOR_X = 380;
-  const ANCHOR_Y = 260;
   const anchorLeftCss = `calc(50vw - ${ANCHOR_X}px)`;
   const anchorTopCss = `calc(50vh - ${ANCHOR_Y}px)`;
   const originCss = `calc(-50vw + ${ANCHOR_X}px) calc(-50vh + ${ANCHOR_Y}px)`;
@@ -37,6 +38,7 @@
       center = touchZoom.center;
       zoom = touchZoom.zoom;
       canvasZoom.set(touchZoom.zoom);
+      canvasMoved.update((n) => n + 1);
       // Blur the focused terminal so panning keeps working when the pointer
       // crosses its (hidden) textarea.
       const active = document.activeElement;

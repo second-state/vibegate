@@ -53,8 +53,16 @@ export const zoomController: Writable<{
   zoom: number;
 } | null> = writable(null);
 
+/** Window-world anchor used by the Canvas transform (see Canvas.svelte). */
+export const ANCHOR_X = 380;
+export const ANCHOR_Y = 260;
+
 /** Current canvas zoom factor (mirrored from TouchZoom). */
 export const canvasZoom: Writable<number> = writable(1);
+
+/** Bumped on every canvas pan/zoom frame — lets screen-space overlays
+ *  (e.g. the keybar) re-anchor to the transformed windows. */
+export const canvasMoved: Writable<number> = writable(0);
 
 /** Live sessions for open windows (component lifecycle manages entries). */
 export const sessions = new Map<string, TerminalSession>();
