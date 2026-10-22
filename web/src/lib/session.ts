@@ -140,6 +140,13 @@ export class TerminalSession {
     this.#sendInput(up ? "\x1b[5~" : "\x1b[6~");
   }
 
+  /** Scroll by n lines via arrow keys (n > 0 = down, n < 0 = up). */
+  scrollLines(n: number) {
+    const count = Math.min(Math.abs(Math.round(n)), 10);
+    if (count === 0) return;
+    this.#sendInput((n < 0 ? "\x1b[A" : "\x1b[B").repeat(count));
+  }
+
   /** Tear down: close the socket (the gateway kills its attach). */
   close() {
     if (this.syncTimer) clearTimeout(this.syncTimer);

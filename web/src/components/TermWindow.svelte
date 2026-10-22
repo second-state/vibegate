@@ -57,8 +57,32 @@ import { stopNative, nativePointerDown } from "../lib/actions";
     };
     termEl.addEventListener("keydown", guard, true);
 
+    // Mobile swipe → PageUp/PageDown (wheel events don't fire for touch).
+    let touchY: number | null = null;
+    const touchStart = (e: TouchEvent) => {
+      touchY = e.touches[0]?.clientY ?? null;
+    };
+    const touchMove = (e: TouchEvent) => {
+      e.preventDefault(); // no overscroll/pull-refresh over the terminal
+      if (touchY === null || !session) return;
+      const y = e.touches[0]?.clientY;
+      if (y === undefined) return;
+      const dy = touchY - y; // >0 = swiping up
+      if (Math.abs(dy) >= 40) {
+        session.scroll(dy < 0); // swipe up → PageDown, swipe down → PageUp
+        touchY = y;
+      }
+    };
+    const touchEnd = () => (touchY = null);
+    termEl.addEventListener("touchstart", touchStart);
+    termEl.addEventListener("touchmove", touchMove, { passive: false });
+    termEl.addEventListener("touchend", touchEnd);
+
     return () => {
       termEl.removeEventListener("keydown", guard);
+      termEl.removeEventListener("touchstart", touchStart);
+      termEl.removeEventListener("touchmove", touchMove);
+      termEl.removeEventListener("touchend", touchEnd);
       unsubStatus();
       unsubSize();
       unregisterSession(prefix);
@@ -120,10 +144,17 @@ import { stopNative, nativePointerDown } from "../lib/actions";
     resizing = null;
   }
 
-  // Wheel over the focused terminal scrolls its own scrollback instead of
-  // panning the canvas; unfocused windows let the canvas pan (same as sshx).
+  // Wheel over the focused terminal sends PageUp/PageDown to the remote pane
+  // (throttled); unfocused windows let the canvas pan.
+  let wheelPending = false;
   function wheel(e: WheelEvent) {
-    if (focused) e.stopPropagation();
+    if (!focused) return; // bubble → canvas pans
+    e.preventDefault();
+    e.stopPropagation();
+    if (!session || wheelPending) return;
+    wheelPending = true;
+    session.scroll(e.deltaY < 0); // up = PageUp
+    setTimeout(() => (wheelPending = false), 150);
   }
 
   $: title = instance?.title || prefix;
@@ -183,7 +214,7 @@ import { stopNative, nativePointerDown } from "../lib/actions";
 
     <!-- Terminal -->
     <div class="min-h-0 flex-1 bg-[#1a1b26]">
-      <div bind:this={termEl} class="h-full w-full" on:wheel={wheel}></div>
+      <div bind:this={termEl} class="h-full w-full" on:wheel|capture={wheel}></div>
     </div>
 
     {#if status === "ended" || status === "error"}
