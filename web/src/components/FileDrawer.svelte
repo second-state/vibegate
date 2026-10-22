@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { filesOpen, drawerOpen } from "../lib/canvas";
+  import { filesOpen, drawerOpen, openImageWindow } from "../lib/canvas";
   import { connection } from "../lib/connection";
 
   type Entry = {
@@ -8,6 +8,9 @@
     size: number;
     mtime?: number | null;
   };
+
+  const IMAGE_EXT = /\.(png|jpe?g|gif|webp|svg|bmp|avif)$/i;
+  const isImage = (name: string) => IMAGE_EXT.test(name);
 
   let path = ""; // "" = gateway file root
   let entries: Entry[] = [];
@@ -181,6 +184,26 @@
               <span class="min-w-0 flex-1 truncate text-slate-200">{e.name}/</span>
               <span class="shrink-0 text-[10px] text-slate-600">{fmtTime(e.mtime)}</span>
             </button>
+          {:else if isImage(e.name)}
+            <button
+              class="flex min-w-0 flex-1 items-center gap-2 text-left"
+              title="点击在画布中查看图片"
+              on:click={() => openImageWindow(joinPath(e.name))}
+            >
+              <span class="shrink-0 text-slate-500">🖼</span>
+              <span class="min-w-0 flex-1 truncate text-slate-200">{e.name}</span>
+              <span class="shrink-0 text-[10px] tabular-nums text-slate-600">{fmtSize(e.size)}</span>
+              <span class="shrink-0 text-[10px] text-slate-600">{fmtTime(e.mtime)}</span>
+            </button>
+            <a
+              class="shrink-0 rounded px-1 text-[10px] text-slate-500 hover:bg-slate-700 hover:text-slate-200"
+              title="下载"
+              href={`${apiBase()}/api/file?path=${encodeURIComponent(joinPath(e.name))}`}
+              download={e.name}
+              on:click|stopPropagation
+            >
+              ⇩
+            </a>
           {:else}
             <span class="w-3 shrink-0"></span>
             <span class="min-w-0 flex-1 truncate text-slate-300">{e.name}</span>

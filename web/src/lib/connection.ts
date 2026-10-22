@@ -84,6 +84,13 @@ class Connection {
     return this.ws?.readyState === WebSocket.OPEN;
   }
 
+  /** HTTP base for the file API, derived from the gateway WS URL. */
+  get apiBase(): string {
+    return (this.urlValue || `ws://${window.location.host}/ws`)
+      .replace(/^ws/i, "http")
+      .replace(/\/ws\/?$/i, "");
+  }
+
   /** The URL the current connection (or last attempt) used. */
   get urlValue(): string {
     return this.url;

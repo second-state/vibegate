@@ -28,6 +28,24 @@ export const drawerOpen: Writable<boolean> = writable(true);
 /** Whether the file browser panel is visible. */
 export const filesOpen: Writable<boolean> = writable(false);
 
+/** Prefix marking canvas windows that view a file (path follows the prefix). */
+export const IMAGE_KEY_PREFIX = "img:";
+
+/** Open an image viewer window for a file path (reuses the existing window
+ *  when the same path is already open) and focus it. */
+export function openImageWindow(path: string) {
+  const key = IMAGE_KEY_PREFIX + path;
+  const map = get(windows);
+  if (!map.has(key)) {
+    const rect = { x: 0, y: 0, w: 640, h: 480 };
+    const pos = arrangeNewTerminal([...map.values()]);
+    rect.x = pos.x;
+    rect.y = pos.y;
+    windows.set(new Map(map).set(key, rect));
+  }
+  focusPrefix.set(key);
+}
+
 /** The canvas TouchZoom controller (set by Canvas on mount). */
 export const zoomController: Writable<{
   moveTo(pos: number[], zoom: number): Promise<void>;

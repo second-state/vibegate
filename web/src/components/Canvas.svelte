@@ -8,9 +8,11 @@
     windows,
     zoomController,
     canvasZoom,
+    IMAGE_KEY_PREFIX,
   } from "../lib/canvas";
   import { connection } from "../lib/connection";
   import TermWindow from "./TermWindow.svelte";
+  import ImageWindow from "./ImageWindow.svelte";
 
   const connState = connection.state;
 
@@ -86,8 +88,12 @@
     style:transform-origin={originCss}
     style:transform="scale({zoom}) translate3d({-center[0]}px, {-center[1]}px, 0)"
   >
-    {#each $orderedPrefixes as prefix (prefix)}
-      <TermWindow {prefix} {zoom} />
+    {#each $orderedPrefixes as key (key)}
+      {#if key.startsWith(IMAGE_KEY_PREFIX)}
+        <ImageWindow path={key.slice(IMAGE_KEY_PREFIX.length)} {zoom} />
+      {:else}
+        <TermWindow prefix={key} {zoom} />
+      {/if}
     {/each}
   </div>
 
