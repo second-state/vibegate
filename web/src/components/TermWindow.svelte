@@ -15,6 +15,7 @@
 import { stopNative, nativePointerDown } from "../lib/actions";
   import { connection } from "../lib/connection";
   import { appearance, resolveBgUrl } from "../lib/appearance";
+  import { TERM_PRESETS } from "../lib/theme";
 
   export let prefix: string;
   export let zoom = 1;
@@ -172,6 +173,13 @@ import { stopNative, nativePointerDown } from "../lib/actions";
 
   $: title = instance?.title || prefix;
   $: state = instance?.state ?? "";
+
+  // With a background image set, xterm's own background goes fully transparent
+  // (see TerminalSession.#resolvedTheme) — this layer paints the theme's
+  // background color underneath, and the image blends onto it by opacity.
+  $: termBgColor = (
+    TERM_PRESETS[$appearance.theme] ?? TERM_PRESETS["tokyo-night"]
+  ).theme.background;
 </script>
 
 {#if rect}
@@ -240,8 +248,13 @@ import { stopNative, nativePointerDown } from "../lib/actions";
     <div class="relative min-h-0 flex-1">
       {#if $appearance.termBg}
         <div
+          class="pointer-events-none absolute inset-0"
+          style:background={termBgColor}
+        ></div>
+        <div
           class="pointer-events-none absolute inset-0 bg-cover bg-center"
           style:background-image={`url("${resolveBgUrl($appearance.termBg)}")`}
+          style:opacity={Math.min(100, Math.max(0, $appearance.termBgOpacity ?? 100)) / 100}
         ></div>
       {/if}
       <div bind:this={termEl} class="relative h-full w-full" on:wheel|capture={wheel}></div>

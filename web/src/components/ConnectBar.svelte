@@ -206,6 +206,27 @@
               spellcheck="false"
             />
           </label>
+          {#if $appearance.termBg}
+            <div class="flex items-center gap-2 text-xs text-slate-400">
+              背景透明度
+              <input
+                type="range"
+                min="0"
+                max="100"
+                step="1"
+                class="min-w-0 flex-1 accent-blue-500"
+                bind:value={$appearance.termBgOpacity}
+              />
+              <input
+                type="number"
+                min="0"
+                max="100"
+                class="w-14 shrink-0 rounded-md border border-slate-700 bg-slate-900 px-1.5 py-1 text-right text-xs text-slate-100 outline-none focus:border-blue-500"
+                bind:value={$appearance.termBgOpacity}
+              />
+              <span class="shrink-0">%</span>
+            </div>
+          {/if}
           <div class="flex items-center gap-2 text-xs text-slate-400">
             辅助键
             <div class="flex flex-1 overflow-hidden rounded-md border border-slate-700">
