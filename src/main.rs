@@ -147,7 +147,7 @@ enum Commands {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    init_logger();
+    let _logger_guard = init_logger();
 
     let cli = Cli::parse();
     let herdr_socket = cli.herdr_socket.clone();
@@ -185,26 +185,51 @@ async fn main() -> Result<()> {
 }
 
 /// Foreground runs log to stdio; the detached daemon (VIBEGATE_LOG_FILE set
-/// by the launcher) appends to that file instead. RUST_LOG still wins.
-fn init_logger() {
-    let filter =
-        tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into());
-    let file = std::env::var("VIBEGATE_LOG_FILE").ok().and_then(|path| {
-        if let Some(dir) = std::path::Path::new(&path).parent() {
-            std::fs::create_dir_all(dir).ok();
+/// by the launcher) logs to file with vibetty-style rotation: append, 10MB
+/// per file, keep 5 days. RUST_LOG filters both paths.
+fn init_logger() -> Option<flexi_logger::LoggerHandle> {
+    match std::env::var("VIBEGATE_LOG_FILE") {
+        Ok(path) if !path.is_empty() => {
+            let path = std::path::PathBuf::from(path);
+            let dir = path
+                .parent()
+                .map(|d| d.to_path_buf())
+                .unwrap_or_else(|| PathBuf::from("."));
+            std::fs::create_dir_all(&dir).ok();
+            let basename = path
+                .file_stem()
+                .map(|s| s.to_string_lossy().to_string())
+                .unwrap_or_else(|| "vibegate".into());
+            use flexi_logger::{Cleanup, Criterion, FileSpec, Logger, Naming, WriteMode};
+            Some(
+                Logger::try_with_env_or_str("info")
+                    .expect("parse RUST_LOG specification")
+                    .log_to_file(
+                        FileSpec::default()
+                            .suppress_timestamp()
+                            .directory(dir)
+                            .basename(basename),
+                    )
+                    .append()
+                    .write_mode(WriteMode::BufferAndFlush)
+                    .rotate(
+                        Criterion::Size(10_000_000), // 10MB per file
+                        Naming::Numbers,
+                        Cleanup::KeepForDays(5),
+                    )
+                    .start()
+                    .expect("start file logger"),
+            )
         }
-        std::fs::OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(&path)
-            .ok()
-    });
-    match file {
-        Some(file) => tracing_subscriber::fmt()
-            .with_env_filter(filter)
-            .with_writer(file)
-            .init(),
-        None => tracing_subscriber::fmt().with_env_filter(filter).init(),
+        _ => {
+            tracing_subscriber::fmt()
+                .with_env_filter(
+                    tracing_subscriber::EnvFilter::try_from_default_env()
+                        .unwrap_or_else(|_| "info".into()),
+                )
+                .init();
+            None
+        }
     }
 }
 

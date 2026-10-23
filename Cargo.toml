@@ -10,6 +10,7 @@ anyhow = "1"
 axum = { version = "0.8", features = ["ws"] }
 clap = { version = "4", features = ["derive", "env"] }
 futures-util = "0.3"
+flexi_logger = "0.31"
 portable-pty = "0.9"
 rust-embed = "8"
 serde = { version = "1", features = ["derive"] }
