@@ -1,0 +1,81 @@
+name: Pre-Release
+
+on:
+  push:
+    tags:
+      - 'v*-*'
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Pre-release tag (e.g. v0.1.0-rc.1)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-musl
+            os: ubuntu-latest
+            artifact: vibegate-linux-x64
+          # arm64 Linux 用原生 arm runner(公共仓库免费),免交叉编译
+          - target: aarch64-unknown-linux-musl
+            os: ubuntu-24.04-arm
+            artifact: vibegate-linux-arm64
+          - target: aarch64-apple-darwin
+            os: macos-latest
+            artifact: vibegate-macos-arm64
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+            artifact: vibegate-windows-x64.exe
+
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      # Linux 用 musl 静态链接:不依赖构建机 glibc,任何 Linux 都能跑
+      - name: Install musl tools
+        if: endsWith(matrix.target, '-musl')
+        run: sudo apt-get update && sudo apt-get install -y musl-tools
+
+      # 前端打包 + cargo build --release,资源内嵌进二进制(单文件产物);
+      # 路径通过 GITHUB_OUTPUT 里的 bin 传给下一步;
+      # VIBEGATE_REPO 烘进二进制,update 自动找对 releases 仓库
+      - name: Build (web + rust via build-release.sh)
+        id: build
+        shell: bash
+        env:
+          VIBEGATE_REPO: ${{ github.repository }}
+        run: bash build-release.sh ${{ matrix.target }}
+
+      - name: Rename artifact
+        shell: bash
+        run: cp "${{ steps.build.outputs.bin }}" ${{ matrix.artifact }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.artifact }}
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create prerelease
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.release_tag || github.ref_name }}
+          prerelease: true
+          generate_release_notes: true
+          files: artifacts/**/*

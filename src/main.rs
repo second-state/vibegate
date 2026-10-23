@@ -2,6 +2,7 @@ mod files;
 mod herdr;
 mod pty;
 mod term;
+mod update;
 mod ws;
 
 use std::net::SocketAddr;
@@ -143,6 +144,12 @@ enum Commands {
         #[arg(long, default_value = "http://127.0.0.1:8480")]
         bind: String,
     },
+    /// Self-update from GitHub Releases (installs like install.sh).
+    Update {
+        /// Release tag to install (default: latest stable).
+        #[arg(default_value = "latest")]
+        tag: String,
+    },
 }
 
 #[tokio::main]
@@ -181,6 +188,9 @@ async fn main() -> Result<()> {
         }
         Commands::Stop { bind } => stop_gateway(&bind).await,
         Commands::Status { bind } => status_gateway(&bind).await,
+        Commands::Update { tag } => {
+            update::run(Some(tag)).await.map_err(anyhow::Error::msg)
+        }
     }
 }
 
