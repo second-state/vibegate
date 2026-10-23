@@ -17,6 +17,7 @@ import { stopNative, nativePointerDown } from "../lib/actions";
   import { appearance, resolveBgUrl } from "../lib/appearance";
   import { TERM_PRESETS } from "../lib/theme";
   import { t } from "../lib/i18n";
+  import { statusColor } from "../lib/discovery";
 
   export let prefix: string;
   export let zoom = 1;
@@ -217,11 +218,7 @@ import { stopNative, nativePointerDown } from "../lib/actions";
         </button>
       {/if}
       <span
-        class="h-2 w-2 shrink-0 rounded-full {state === 'working'
-          ? 'bg-green-400'
-          : state === 'waiting'
-            ? 'bg-yellow-400'
-            : 'bg-slate-500'}"
+        class="h-2 w-2 shrink-0 rounded-full {statusColor(state)}"
         title={state || 'shell'}
       ></span>
       <span class="min-w-0 flex-1 truncate text-xs font-medium text-slate-300" title={prefix}>

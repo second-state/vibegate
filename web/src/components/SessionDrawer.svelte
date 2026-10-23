@@ -3,7 +3,7 @@
   import { openWindow, focusPrefix, windows, drawerOpen } from "../lib/canvas";
   import { writable } from "svelte/store";
   import { connection } from "../lib/connection";
-  import type { Instance } from "../lib/discovery";
+  import { statusColor, statusTextCls, type Instance } from "../lib/discovery";
   import { t } from "../lib/i18n";
 
   const list = discovery.list;
@@ -17,14 +17,6 @@
 
   const toggle = (id: string) =>
     expandedStore.update((m) => ({ ...m, [id]: m[id] === false }));
-
-  function stateColor(state: string): string {
-    return state === "working"
-      ? "bg-green-400"
-      : state === "waiting"
-        ? "bg-yellow-400"
-        : "bg-slate-500";
-  }
 
   type Group = { id: string; label: string; number: number; panes: Instance[] };
 
@@ -118,17 +110,13 @@
                       : "text-slate-400 hover:bg-slate-800"}"
                   on:click={() => openWindow(p.sid)}
                 >
-                  <span class="h-1.5 w-1.5 shrink-0 rounded-full {stateColor(p.agent_status)}"></span>
+                  <span class="h-1.5 w-1.5 shrink-0 rounded-full {statusColor(p.state)}"></span>
                   <span class="min-w-0 flex-1 truncate">{p.title || p.pane_id}</span>
                   {#if $windows.has(p.sid)}
                     <span class="shrink-0 text-[9px] text-slate-600">{$t("onCanvas")}</span>
                   {/if}
                   {#if p.state}
-                    <span
-                      class="shrink-0 text-[9px] {p.state === 'waiting'
-                        ? 'text-yellow-400'
-                        : 'text-green-400'}"
-                    >
+                    <span class="shrink-0 text-[9px] {statusTextCls(p.state)}">
                       {p.state}
                     </span>
                   {/if}
@@ -169,7 +157,7 @@
                 class="flex w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-left text-sm text-slate-400 hover:bg-slate-800"
                 on:click={() => openWindow(p.sid)}
               >
-                <span class="h-1.5 w-1.5 shrink-0 rounded-full {stateColor(p.agent_status)}"></span>
+                <span class="h-1.5 w-1.5 shrink-0 rounded-full {statusColor(p.state)}"></span>
                 <span class="min-w-0 flex-1 truncate">{p.title || p.pane_id}</span>
               </button>
             {/each}
