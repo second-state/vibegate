@@ -220,6 +220,7 @@ fn init_logger() -> Option<flexi_logger::LoggerHandle> {
                             .directory(dir)
                             .basename(basename),
                     )
+                    .format_for_files(flexi_logger::detailed_format) // 带时间戳
                     .append()
                     .write_mode(WriteMode::BufferAndFlush)
                     .rotate(
