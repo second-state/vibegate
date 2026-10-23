@@ -2,7 +2,7 @@
   import { onMount } from "svelte";
   import { marked } from "marked";
   import DOMPurify from "dompurify";
-  import { windows, focusPrefix, moveWindow, closeWindow } from "../lib/canvas";
+  import { windows, focusPrefix, moveWindow, closeWindow, canvasOnly } from "../lib/canvas";
   import { nativePointerDown, stopNative } from "../lib/actions";
   import { connection } from "../lib/connection";
   import { t } from "../lib/i18n";
@@ -111,6 +111,7 @@
     class="absolute flex flex-col overflow-hidden rounded-lg border shadow-2xl {focused
       ? 'border-slate-500'
       : 'border-slate-800 opacity-90'}"
+    class:pointer-events-none={$canvasOnly}
     style:left="{rect.x}px"
     style:top="{rect.y}px"
     style:width="{rect.w}px"

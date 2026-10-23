@@ -12,6 +12,7 @@
   import { stickyMods, toggleMod, clearMods, applyMods } from "../lib/mods";
   import { appearance } from "../lib/appearance";
   import { t } from "../lib/i18n";
+  import { canvasOnly } from "../lib/canvas";
 
   // Floating bar pinned below the focused terminal window, in screen
   // coordinates. The position is measured from the window's live DOM rect
@@ -104,7 +105,7 @@
 
 <svelte:window bind:innerWidth={vw} bind:innerHeight={vh} />
 
-{#if focusedRect && $appearance.keybar !== "hidden"}
+{#if focusedRect && $appearance.keybar !== "hidden" && !$canvasOnly}
   <div
     class="z-[5] border-slate-800 bg-[#16161e]/95 backdrop-blur {$appearance.keybar === 'float'
       ? 'fixed rounded-lg border shadow-xl'

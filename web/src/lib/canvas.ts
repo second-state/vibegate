@@ -28,6 +28,10 @@ export const drawerOpen: Writable<boolean> = writable(true);
 /** Whether the file browser panel is visible. */
 export const filesOpen: Writable<boolean> = writable(false);
 
+/** Canvas-only mode: windows become pointer-transparent, so every click /
+ *  touch reaches the canvas for panning & zooming (a "hand tool"). */
+export const canvasOnly: Writable<boolean> = writable(false);
+
 /** Prefix marking canvas windows that view a file (path follows the prefix). */
 export const IMAGE_KEY_PREFIX = "img:";
 export const MD_KEY_PREFIX = "md:";

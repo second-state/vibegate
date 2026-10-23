@@ -8,6 +8,7 @@
     focusPrefix,
     moveWindow,
     closeWindow,
+    canvasOnly,
     MIN_W,
     MIN_H,
   } from "../lib/canvas";
@@ -189,6 +190,7 @@ import { stopNative, nativePointerDown } from "../lib/actions";
     class="absolute flex flex-col overflow-hidden rounded-lg border shadow-2xl {focused
       ? 'border-slate-500'
       : 'border-slate-800 opacity-90'}"
+    class:pointer-events-none={$canvasOnly}
     style:left="{rect.x}px"
     style:top="{rect.y}px"
     style:width="{rect.w}px"

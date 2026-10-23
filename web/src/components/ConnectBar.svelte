@@ -6,7 +6,7 @@
     validateGatewayUrl,
     mixedContentWarning,
   } from "../lib/connection";
-  import { drawerOpen, filesOpen } from "../lib/canvas";
+  import { drawerOpen, filesOpen, canvasOnly } from "../lib/canvas";
   import { appearance, resolveBgUrl, type Appearance } from "../lib/appearance";
   import { TERM_PRESETS } from "../lib/theme";
   import { t, lang, type Lang } from "../lib/i18n";
@@ -121,6 +121,19 @@
   </button>
 
   <div class="ml-auto flex items-center gap-2">
+    <button
+      class="flex items-center justify-center rounded-md {$canvasOnly
+        ? 'bg-blue-600'
+        : 'bg-slate-800'} h-[22px] w-8 text-slate-200 hover:bg-slate-700"
+      class:ring-1={$canvasOnly}
+      class:ring-blue-300={$canvasOnly}
+      title={$t("canvasMode")}
+      on:click={() => canvasOnly.update((v) => !v)}
+    >
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M12 1.5 14.6 9.4 22.5 12 14.6 14.6 12 22.5 9.4 14.6 1.5 12 9.4 9.4 Z" />
+      </svg>
+    </button>
     <button
       class="rounded-md {$filesOpen
         ? 'bg-blue-600'
