@@ -16,6 +16,7 @@ import { stopNative, nativePointerDown } from "../lib/actions";
   import { connection } from "../lib/connection";
   import { appearance, resolveBgUrl } from "../lib/appearance";
   import { TERM_PRESETS } from "../lib/theme";
+  import { t } from "../lib/i18n";
 
   export let prefix: string;
   export let zoom = 1;
@@ -208,7 +209,7 @@ import { stopNative, nativePointerDown } from "../lib/actions";
       {#if status === "ended" || status === "error"}
         <button
           class="shrink-0 rounded px-1 text-sm text-blue-400 hover:bg-slate-700"
-          title="重新连接"
+          title={$t("reconnect")}
           use:stopNative={["pointerdown"]}
           on:mousedown={(e) => e.button === 0 && session?.reopen()}
         >
@@ -229,14 +230,14 @@ import { stopNative, nativePointerDown } from "../lib/actions";
       {#if size.cols > 0}
         <span
           class="shrink-0 rounded bg-slate-800 px-1 text-[10px] tabular-nums text-slate-400"
-          title="终端大小(列×行)"
+          title={$t("gridSize")}
         >
           {size.cols}×{size.rows}
         </span>
       {/if}
       <button
         class="shrink-0 rounded px-1.5 text-sm text-slate-500 hover:text-red-400"
-        title="关闭窗口(不影响远端会话)"
+        title={$t("closeWindow")}
         use:stopNative={["pointerdown", "dblclick"]}
         on:mousedown={(e) => e.button === 0 && closeWindow(prefix)}
       >
@@ -263,7 +264,7 @@ import { stopNative, nativePointerDown } from "../lib/actions";
     {#if status === "ended" || status === "error"}
       <div class="pointer-events-none absolute inset-0 top-8 z-10 flex items-center justify-center bg-[#16161e]/85">
         <p class="text-xs text-slate-400">
-          {#if instance}连接已断开——点标题栏 ⟳ 重新连接{:else}远端面板已关闭,窗口即将移除…{/if}
+          {#if instance}{$t("disconnectedHint")}{:else}{$t("paneGoneHint")}{/if}
         </p>
       </div>
     {/if}

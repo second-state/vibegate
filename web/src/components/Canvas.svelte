@@ -15,6 +15,7 @@
   } from "../lib/canvas";
   import { connection } from "../lib/connection";
   import { appearance, resolveBgUrl } from "../lib/appearance";
+  import { t } from "../lib/i18n";
   import TermWindow from "./TermWindow.svelte";
   import ImageWindow from "./ImageWindow.svelte";
 
@@ -112,15 +113,15 @@
   {#if !$hasWindows}
     <div class="pointer-events-none absolute inset-0 flex items-center justify-center">
       <div class="rounded-xl bg-slate-900/70 px-6 py-4 text-center text-sm text-slate-400">
-        <p class="mb-1 text-base text-slate-300">画布是空的</p>
+        <p class="mb-1 text-base text-slate-300">{$t("canvasEmpty")}</p>
         <p>
           {#if $connState === "connected"}
-            点右上角「会话」打开一个终端窗口
+            {$t("canvasEmptyConnect")}
           {:else}
-            先在顶部连接 vibegate 网关
+            {$t("canvasEmptyOffline")}
           {/if}
         </p>
-        <p class="mt-2 text-xs text-slate-500">拖动空白平移 · 双指/滚轮缩放 · 双击窗口居中</p>
+        <p class="mt-2 text-xs text-slate-500">{$t("canvasHint")}</p>
       </div>
     </div>
   {/if}

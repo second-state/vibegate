@@ -60,11 +60,8 @@ export function validateGatewayUrl(url: string): string | null {
 }
 
 /** https pages cannot connect to ws:// (mixed content is blocked by browsers). */
-export function mixedContentWarning(url: string): string | null {
-  if (window.location.protocol === "https:" && url.startsWith("ws://")) {
-    return "当前页面是 https,浏览器会拦截 ws:// 明文连接——请改用 wss://,或把本页部署在 http 下";
-  }
-  return null;
+export function mixedContentWarning(url: string): boolean {
+  return window.location.protocol === "https:" && url.startsWith("ws://");
 }
 
 class Connection {

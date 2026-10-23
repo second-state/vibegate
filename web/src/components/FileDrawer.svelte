@@ -1,6 +1,8 @@
 <script lang="ts">
   import { filesOpen, drawerOpen, openImageWindow } from "../lib/canvas";
   import { connection } from "../lib/connection";
+  import { get } from "svelte/store";
+  import { t } from "../lib/i18n";
 
   type Entry = {
     name: string;
@@ -36,11 +38,11 @@
       const body = await resp.json();
       if (!resp.ok) {
         errMsg = body.message || body.error || `HTTP ${resp.status}`;
-        if (body.type === "file") errMsg = "这是一个文件";
+        if (body.type === "file") errMsg = get(t)("isFile");
         return;
       }
       if (body.type !== "dir") {
-        errMsg = "不是目录";
+        errMsg = get(t)("notDir");
         return;
       }
       path = body.path;
@@ -126,7 +128,7 @@
         }
         reject(new Error(msg));
       };
-      xhr.onerror = () => reject(new Error("网络错误"));
+      xhr.onerror = () => reject(new Error(get(t)("netError")));
       xhr.send(offset > 0 ? file.slice(offset) : file);
     });
   }
@@ -161,7 +163,7 @@
       `${apiBase()}/api/upload/status?path=${encodeURIComponent(target)}&token=${token}`,
     );
     const body = await resp.json();
-    if (typeof body.size !== "number") throw new Error("无法查询断点");
+    if (typeof body.size !== "number") throw new Error(get(t)("breakpointQueryError"));
     return body.size;
   }
 
@@ -187,7 +189,7 @@
           // Covers both the PUT and the breakpoint query (which must never
           // be skipped — assuming offset 0 could duplicate data server-side).
           if (attempt >= 3) throw e;
-          errMsg = `上传中断,正在续传(${attempt}/3)…`;
+          errMsg = get(t)("resumeIn", { n: attempt });
           await new Promise((r) => setTimeout(r, 1000));
         }
       }
@@ -207,7 +209,7 @@
       await uploadOne(entry.file);
     } catch (e) {
       failedUploads = [...failedUploads, entry];
-      errMsg = `上传失败 ${entry.file.name}: ${(e as Error).message}`;
+      errMsg = get(t)("uploadFailed", { name: entry.file.name, msg: (e as Error).message });
       return;
     }
     await load(path);
@@ -222,7 +224,7 @@
         await uploadOne(f);
       } catch (e) {
         failedUploads = [...failedUploads, { id: ++failedSeq, file: f }];
-        errMsg = `上传失败 ${f.name}: ${(e as Error).message}`;
+        errMsg = get(t)("uploadFailed", { name: f.name, msg: (e as Error).message });
       }
     }
     await load(path);
@@ -239,10 +241,10 @@
     class="absolute inset-y-2 right-2 z-10 flex w-80 max-w-[calc(100vw-1rem)] flex-col overflow-hidden rounded-xl border border-slate-700 bg-slate-900/95 shadow-2xl backdrop-blur"
   >
     <div class="flex items-center justify-between border-b border-slate-800 px-3 py-2">
-      <span class="text-xs font-semibold text-slate-300">文件</span>
+      <span class="text-xs font-semibold text-slate-300">{$t("files")}</span>
       <button
         class="rounded px-1 text-xs text-slate-500 hover:text-slate-200"
-        title="刷新"
+        title={$t("refresh")}
         on:click={() => load(path)}
       >
         ⟳
@@ -254,21 +256,21 @@
       <button
         class="rounded px-1.5 py-0.5 text-xs text-slate-300 hover:bg-slate-700 disabled:opacity-30"
         disabled={!path}
-        title="上一级"
+        title={$t("goUp")}
         on:click={up}
       >
         ↑
       </button>
       <span class="min-w-0 flex-1 truncate text-[11px] text-slate-400" title={path}>
-        {path || "(根目录)"}
+        {path || $t("rootDir")}
       </span>
       <button
         class="shrink-0 rounded bg-slate-800 px-1.5 py-0.5 text-[11px] text-slate-200 hover:bg-slate-700 disabled:opacity-40"
         disabled={loading || uploads.length > 0}
         on:click={pickUpload}
-        title="上传到当前目录"
+        title={$t("uploadTitle")}
       >
-        {uploads.length > 0 ? `上传中(${uploads.length})` : "⇧ 上传"}
+        {uploads.length > 0 ? $t("uploading", { n: uploads.length }) : $t("uploadLabel")}
       </button>
       <input
         type="file"
@@ -296,14 +298,14 @@
             <span class="min-w-0 flex-1 truncate text-red-300">⚠ {fu.file.name}</span>
             <button
               class="shrink-0 rounded bg-slate-800 px-1.5 py-0.5 text-slate-200 hover:bg-slate-700"
-              title="从断点继续上传"
+              title={$t("resumeUpload")}
               on:click={() => retryUpload(fu)}
             >
-              ↻ 重传
+              ↻ {$t("retryUpload")}
             </button>
             <button
               class="shrink-0 px-0.5 text-slate-500 hover:text-slate-200"
-              title="忽略"
+              title={$t("dismiss")}
               on:click={() => (failedUploads = failedUploads.filter((x) => x.id !== fu.id))}
             >
               ×
@@ -316,7 +318,7 @@
     <!-- entries -->
     <div class="flex flex-1 flex-col overflow-auto p-1.5">
       {#if loading}
-        <p class="px-2 py-4 text-center text-xs text-slate-500">加载中…</p>
+        <p class="px-2 py-4 text-center text-xs text-slate-500">{$t("loading")}</p>
       {:else if errMsg}
         <p class="px-2 py-3 text-center text-xs text-red-400">{errMsg}</p>
       {/if}
@@ -333,7 +335,7 @@
           {:else if isImage(e.name)}
             <button
               class="flex min-w-0 flex-1 items-center gap-2 text-left"
-              title="点击在画布中查看图片"
+              title={$t("viewImage")}
               on:click={() => openImageWindow(joinPath(e.name))}
             >
               <span class="shrink-0 text-slate-500">🖼</span>
@@ -343,7 +345,7 @@
             </button>
             <a
               class="shrink-0 rounded px-1 text-[10px] text-slate-500 hover:bg-slate-700 hover:text-slate-200"
-              title="下载"
+              title={$t("download")}
               href={`${apiBase()}/api/file?path=${encodeURIComponent(joinPath(e.name))}`}
               download={e.name}
               on:click|stopPropagation
@@ -357,7 +359,7 @@
             <span class="shrink-0 text-[10px] text-slate-600">{fmtTime(e.mtime)}</span>
             <a
               class="shrink-0 rounded px-1 text-[10px] text-slate-500 hover:bg-slate-700 hover:text-slate-200"
-              title="下载"
+              title={$t("download")}
               href={`${apiBase()}/api/file?path=${encodeURIComponent(joinPath(e.name))}`}
               download={e.name}
               on:click|stopPropagation
@@ -368,7 +370,7 @@
         </div>
       {:else}
         {#if !loading && !errMsg}
-          <p class="px-2 py-4 text-center text-xs text-slate-500">空目录</p>
+          <p class="px-2 py-4 text-center text-xs text-slate-500">{$t("emptyDir")}</p>
         {/if}
       {/each}
     </div>

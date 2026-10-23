@@ -4,6 +4,7 @@
   import { writable } from "svelte/store";
   import { connection } from "../lib/connection";
   import type { Instance } from "../lib/discovery";
+  import { t } from "../lib/i18n";
 
   const list = discovery.list;
   const connState = connection.state;
@@ -75,8 +76,8 @@
     class="absolute inset-y-2 right-2 z-10 flex w-72 max-w-[calc(100vw-1rem)] flex-col overflow-hidden rounded-xl border border-slate-700 bg-slate-900/95 shadow-2xl backdrop-blur"
   >
     <div class="flex items-center justify-between border-b border-slate-800 px-3 py-2">
-      <span class="text-xs font-semibold text-slate-300">会话</span>
-      <span class="text-xs text-slate-500">{$workspaces.length} ws · {$list.length} pane</span>
+      <span class="text-xs font-semibold text-slate-300">{$t("sessions")}</span>
+      <span class="text-xs text-slate-500">{$t("wsPanes", { ws: $workspaces.length, pane: $list.length })}</span>
     </div>
     <div class="flex min-h-0 flex-1 flex-col overflow-auto p-2">
       <!-- workspace → pane tree -->
@@ -89,7 +90,7 @@
             <button
               class="flex min-w-0 flex-1 items-center gap-1 text-left"
               on:click={() => toggle(g.id)}
-              title="展开/收起"
+              title={$t("toggleCollapse")}
             >
               <span class="w-3 shrink-0 text-slate-500">{$expandedStore[g.id] !== false ? "▾" : "▸"}</span>
               <span class="min-w-0 flex-1 truncate font-semibold text-slate-300">{g.label}</span>
@@ -98,7 +99,7 @@
             <button
               class="shrink-0 rounded px-1 text-sm text-slate-500 hover:bg-slate-700 hover:text-slate-200 disabled:opacity-40"
               disabled={$connState !== "connected" || creatingPane === g.id}
-              title="在此 workspace 新建终端"
+              title={$t("newPaneHere")}
               on:click={() => createPane(g.id)}
             >
               {creatingPane === g.id ? "…" : "+"}
@@ -120,7 +121,7 @@
                   <span class="h-1.5 w-1.5 shrink-0 rounded-full {stateColor(p.agent_status)}"></span>
                   <span class="min-w-0 flex-1 truncate">{p.title || p.pane_id}</span>
                   {#if $windows.has(p.sid)}
-                    <span class="shrink-0 text-[9px] text-slate-600">画布</span>
+                    <span class="shrink-0 text-[9px] text-slate-600">{$t("onCanvas")}</span>
                   {/if}
                   {#if p.state}
                     <span
@@ -133,7 +134,7 @@
                   {/if}
                   <span
                     class="shrink-0 rounded px-0.5 text-[10px] text-slate-600 hover:bg-red-900/60 hover:text-red-300"
-                    title="关闭此 pane"
+                    title={$t("closePane")}
                     role="button"
                     tabindex="0"
                     on:click|stopPropagation={(e) => killPane(e, p.pane_id)}
@@ -143,14 +144,14 @@
                   </span>
                 </button>
               {:else}
-                <p class="px-1.5 py-0.5 text-[10px] text-slate-600">(空 workspace)</p>
+                <p class="px-1.5 py-0.5 text-[10px] text-slate-600">{$t("emptyWorkspace")}</p>
               {/each}
             </div>
           {/if}
         </div>
       {:else}
         {#if $connState !== "connected"}
-          <p class="px-2 py-4 text-center text-xs text-slate-500">未连接网关——点顶部状态栏配置</p>
+          <p class="px-2 py-4 text-center text-xs text-slate-500">{$t("notConnected")}</p>
         {/if}
       {/each}
 
@@ -159,7 +160,7 @@
         <div class="mb-0.5 mt-1">
           <div class="flex w-full items-center gap-1 rounded-lg px-1 py-1 text-xs text-slate-400">
             <span class="w-3 shrink-0 text-slate-500">▾</span>
-            <span class="min-w-0 flex-1 font-semibold text-slate-300">其他</span>
+            <span class="min-w-0 flex-1 font-semibold text-slate-300">{$t("others")}</span>
             <span class="shrink-0 text-[10px] text-slate-600">{orphans.length}</span>
           </div>
           <div class="ml-3 flex flex-col gap-0.5 border-l border-slate-800 pl-1">
@@ -180,11 +181,11 @@
       <button
         class="mt-1 flex w-full items-center justify-center gap-1 rounded-lg border border-dashed border-slate-600 px-2 py-1.5 text-sm text-slate-300 hover:bg-slate-800 disabled:opacity-40"
         disabled={$connState !== "connected" || creatingWorkspace}
-        title="新建 workspace(带一个终端)"
+        title={$t("newWorkspaceTitle")}
         on:click={createWorkspace}
       >
         <span class="text-base leading-none">+</span>
-        {creatingWorkspace ? "创建中…" : "新建 workspace"}
+        {creatingWorkspace ? $t("creating") : $t("newWorkspace")}
       </button>
     </div>
   </div>

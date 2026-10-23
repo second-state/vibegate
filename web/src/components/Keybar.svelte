@@ -11,6 +11,7 @@
   } from "../lib/canvas";
   import { stickyMods, toggleMod, clearMods, applyMods } from "../lib/mods";
   import { appearance } from "../lib/appearance";
+  import { t } from "../lib/i18n";
 
   // Floating bar pinned below the focused terminal window, in screen
   // coordinates. The position is measured from the window's live DOM rect
@@ -143,28 +144,28 @@
           <div class="flex gap-1 overflow-x-auto">
             <button
               class={$stickyMods.ctrl ? modOn : modOff}
-              title="粘滞 Ctrl:下一次按键(按钮或软键盘输入)附带 Ctrl"
+              title={$t("stickyModTitle", { mod: "Ctrl" })}
               on:pointerdown|preventDefault={() => toggleMod("ctrl")}
             >
               Ctrl
             </button>
             <button
               class={$stickyMods.alt ? modOn : modOff}
-              title="粘滞 Alt:下一次按键(按钮或软键盘输入)附带 Alt"
+              title={$t("stickyModTitle", { mod: "Alt" })}
               on:pointerdown|preventDefault={() => toggleMod("alt")}
             >
               Alt
             </button>
             <button
               class={$stickyMods.shift ? modOn : modOff}
-              title="粘滞 Shift:下一次按键(按钮或软键盘输入)附带 Shift"
+              title={$t("stickyModTitle", { mod: "Shift" })}
               on:pointerdown|preventDefault={() => toggleMod("shift")}
             >
               Shift
             </button>
             <button
               class="{Math.abs($canvasZoom - 1) > 0.01 ? modOn : modOff}"
-              title="重置画布缩放到 1×(当前 {$canvasZoom.toFixed(1)}×)"
+              title={$t("resetZoomTitle", { zoom: $canvasZoom.toFixed(1) })}
               on:pointerdown|preventDefault={resetZoom}
             >
               1×
@@ -175,14 +176,14 @@
         <div class="flex shrink-0 flex-col items-center gap-0.5">
           <button
             class="{keyCls} w-8 px-0 font-bold"
-            title="向上滚动服务端 scrollback"
+            title={$t("scrollUpTitle")}
             on:pointerdown|preventDefault={() => doScroll(true)}
           >
             ⤒
           </button>
           <button
             class="{keyCls} w-8 px-0 font-bold"
-            title="向下滚动服务端 scrollback"
+            title={$t("scrollDownTitle")}
             on:pointerdown|preventDefault={() => doScroll(false)}
           >
             ⤓

@@ -9,11 +9,19 @@
   import { drawerOpen, filesOpen } from "../lib/canvas";
   import { appearance, resolveBgUrl, type Appearance } from "../lib/appearance";
   import { TERM_PRESETS } from "../lib/theme";
+  import { t, lang, type Lang } from "../lib/i18n";
 
-  const KEYBAR_MODES: { val: Appearance["keybar"]; label: string }[] = [
-    { val: "float", label: "悬浮" },
-    { val: "top", label: "置顶" },
-    { val: "hidden", label: "隐藏" },
+  const KEYBAR_MODES: {
+    val: Appearance["keybar"];
+    label: "keybarFloat" | "keybarTop" | "keybarHidden";
+  }[] = [
+    { val: "float", label: "keybarFloat" },
+    { val: "top", label: "keybarTop" },
+    { val: "hidden", label: "keybarHidden" },
+  ];
+  const LANGS: { val: Lang; label: string }[] = [
+    { val: "zh", label: "中文" },
+    { val: "en", label: "English" },
   ];
 
   let url = "";
@@ -40,12 +48,19 @@
   $: err = $connError;
   $: mixedWarn = mixedContentWarning(url);
 
-  const badge = {
-    idle: ["未连接", "bg-slate-700 text-slate-300"],
-    connecting: ["连接中…", "bg-yellow-800 text-yellow-200"],
-    connected: ["已连接", "bg-green-900 text-green-300"],
-    reconnecting: ["重连中…", "bg-orange-900 text-orange-200"],
-    error: ["错误", "bg-red-900 text-red-300"],
+  const badgeCls = {
+    idle: "bg-slate-700 text-slate-300",
+    connecting: "bg-yellow-800 text-yellow-200",
+    connected: "bg-green-900 text-green-300",
+    reconnecting: "bg-orange-900 text-orange-200",
+    error: "bg-red-900 text-red-300",
+  } as const;
+  const badgeKey = {
+    idle: "stateIdle",
+    connecting: "stateConnecting",
+    connected: "stateConnected",
+    reconnecting: "stateReconnecting",
+    error: "stateError",
   } as const;
 
   function doConnect() {
@@ -81,7 +96,7 @@
     class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-slate-300 hover:bg-slate-800 {showSettings
       ? 'bg-slate-800'
       : ''}"
-    title="菜单"
+    title={$t("menu")}
     on:click={() => (showSettings = !showSettings)}
   >
     <svg
@@ -98,11 +113,11 @@
   </button>
 
   <button
-    class="ml-1 rounded-md px-2 py-0.5 text-xs font-medium {badge[state][1]}"
+    class="ml-1 rounded-md px-2 py-0.5 text-xs font-medium {badgeCls[state]}"
     on:click={() => (showSettings = !showSettings)}
-    title="连接状态:{state === 'connected' ? '点击配置' : '点击配置连接'} · {url}"
+    title="{$t("badgeTitle", { state: $t(badgeKey[state]) })} · {url}"
   >
-    {badge[state][0]}
+    {$t(badgeKey[state])}
   </button>
 
   <div class="ml-auto flex items-center gap-2">
@@ -116,7 +131,7 @@
         showSettings = false;
       }}
     >
-      文件
+      {$t("files")}
     </button>
     <button
       class="rounded-md {$drawerOpen
@@ -128,7 +143,7 @@
         showSettings = false;
       }}
     >
-      会话
+      {$t("sessions")}
     </button>
   </div>
 
@@ -136,7 +151,7 @@
     <div class="absolute left-2 top-full mt-1 w-[calc(100vw-1rem)] max-w-md rounded-lg border border-slate-700 bg-[#1a1b26] p-3 shadow-xl">
       <div class="flex flex-col gap-2">
         <label class="flex flex-col gap-1 text-xs text-slate-400">
-          vibegate 网关地址
+          {$t("gatewayUrl")}
           <input
             class="rounded-md border border-slate-700 bg-slate-900 px-2 py-1.5 text-sm text-slate-100 outline-none focus:border-blue-500"
             style="font-size: 16px"
@@ -147,10 +162,10 @@
           />
         </label>
         <p class="text-xs text-slate-500">
-          即 vibegate 服务端的 <code class="text-slate-400">/ws</code> 地址;https 页面请用 wss://。
+          {$t("gatewayHint")}
         </p>
         {#if mixedWarn}
-          <p class="text-xs text-yellow-400">{mixedWarn}</p>
+          <p class="text-xs text-yellow-400">{$t("mixedContent")}</p>
         {/if}
         {#if err}
           <p class="text-xs text-red-400">{err}</p>
@@ -163,23 +178,23 @@
               doConnect();
             }}
           >
-            连接
+            {$t("connect")}
           </button>
           <button
             class="rounded-md bg-slate-800 px-3 py-1.5 text-sm text-slate-300 hover:bg-slate-700"
             on:click={doDisconnect}
           >
-            断开
+            {$t("disconnect")}
           </button>
         </div>
 
-        <!-- appearance -->
+        <!-- appearance: label on one line, control on the next -->
         <div class="mt-2 border-t border-slate-700 pt-2">
-          <div class="mb-1.5 text-xs font-semibold text-slate-400">外观</div>
-          <label class="mb-1.5 flex items-center gap-2 text-xs text-slate-400">
-            终端主题
+          <div class="mb-1.5 text-xs font-semibold text-slate-400">{$t("appearance")}</div>
+          <label class="mb-1.5 block text-xs text-slate-400">
+            <div class="mb-1">{$t("terminalTheme")}</div>
             <select
-              class="flex-1 rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-sm text-slate-100 outline-none focus:border-blue-500"
+              class="w-full rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-sm text-slate-100 outline-none focus:border-blue-500"
               value={$appearance.theme}
               on:change={(e) => appearance.set({ ...$appearance, theme: e.currentTarget.value })}
             >
@@ -188,48 +203,50 @@
               {/each}
             </select>
           </label>
-          <label class="mb-1.5 flex items-center gap-2 text-xs text-slate-400">
-            画布背景
+          <label class="mb-1.5 block text-xs text-slate-400">
+            <div class="mb-1">{$t("canvasBgLabel")}</div>
             <input
-              class="min-w-0 flex-1 rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-slate-100 outline-none focus:border-blue-500"
-              placeholder="文件路径或图片 URL(留空 = 无)"
+              class="w-full rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-slate-100 outline-none focus:border-blue-500"
+              placeholder={$t("bgPlaceholder")}
               bind:value={$appearance.canvasBg}
               spellcheck="false"
             />
           </label>
-          <label class="flex items-center gap-2 text-xs text-slate-400">
-            终端背景
+          <label class="block text-xs text-slate-400">
+            <div class="mb-1">{$t("terminalBgLabel")}</div>
             <input
-              class="min-w-0 flex-1 rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-slate-100 outline-none focus:border-blue-500"
-              placeholder="文件路径或图片 URL(留空 = 无)"
+              class="w-full rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-slate-100 outline-none focus:border-blue-500"
+              placeholder={$t("bgPlaceholder")}
               bind:value={$appearance.termBg}
               spellcheck="false"
             />
           </label>
           {#if $appearance.termBg}
-            <div class="flex items-center gap-2 text-xs text-slate-400">
-              背景透明度
-              <input
-                type="range"
-                min="0"
-                max="100"
-                step="1"
-                class="min-w-0 flex-1 accent-blue-500"
-                bind:value={$appearance.termBgOpacity}
-              />
-              <input
-                type="number"
-                min="0"
-                max="100"
-                class="w-14 shrink-0 rounded-md border border-slate-700 bg-slate-900 px-1.5 py-1 text-right text-xs text-slate-100 outline-none focus:border-blue-500"
-                bind:value={$appearance.termBgOpacity}
-              />
-              <span class="shrink-0">%</span>
+            <div class="mt-1.5 text-xs text-slate-400">
+              <div class="mb-1">{$t("bgOpacity")}</div>
+              <div class="flex items-center gap-2">
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  step="1"
+                  class="min-w-0 flex-1 accent-blue-500"
+                  bind:value={$appearance.termBgOpacity}
+                />
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  class="w-14 shrink-0 rounded-md border border-slate-700 bg-slate-900 px-1.5 py-1 text-right text-xs text-slate-100 outline-none focus:border-blue-500"
+                  bind:value={$appearance.termBgOpacity}
+                />
+                <span class="shrink-0">%</span>
+              </div>
             </div>
           {/if}
-          <div class="flex items-center gap-2 text-xs text-slate-400">
-            辅助键
-            <div class="flex flex-1 overflow-hidden rounded-md border border-slate-700">
+          <div class="mt-1.5 mb-1.5 text-xs text-slate-400">
+            <div class="mb-1">{$t("keybarLabel")}</div>
+            <div class="flex overflow-hidden rounded-md border border-slate-700">
               {#each KEYBAR_MODES as m (m.val)}
                 <button
                   class="flex-1 py-1 text-xs {$appearance.keybar === m.val
@@ -237,13 +254,28 @@
                     : 'bg-slate-900 text-slate-300 hover:bg-slate-800'}"
                   on:click={() => appearance.set({ ...$appearance, keybar: m.val })}
                 >
-                  {m.label}
+                  {$t(m.label)}
+                </button>
+              {/each}
+            </div>
+          </div>
+          <div class="text-xs text-slate-400">
+            <div class="mb-1">{$t("language")}</div>
+            <div class="flex overflow-hidden rounded-md border border-slate-700">
+              {#each LANGS as l (l.val)}
+                <button
+                  class="flex-1 py-1 text-xs {$lang === l.val
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-slate-900 text-slate-300 hover:bg-slate-800'}"
+                  on:click={() => lang.set(l.val)}
+                >
+                  {l.label}
                 </button>
               {/each}
             </div>
           </div>
           <p class="text-[10px] text-slate-600">
-            相对路径走网关文件 API;图片窗口标题栏也有「画布」「终端」快捷设置按钮。
+            {$t("appearanceNote")}
           </p>
         </div>
       </div>
