@@ -8,17 +8,62 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use anyhow::Result;
+use axum::http::{header, StatusCode, Uri};
+use axum::response::{IntoResponse, Response};
 use clap::{Parser, Subcommand};
 use serde_json::json;
 
 use herdr::Herdr;
+
+/// Web frontend assets. Release builds embed them into the binary; debug
+/// builds live-read `web/dist` from disk (rebuild the frontend, refresh).
+#[derive(rust_embed::RustEmbed)]
+#[folder = "web/dist"]
+struct WebAssets;
+
+fn mime_of(path: &str) -> &'static str {
+    match path.rsplit('.').next().unwrap_or("") {
+        "html" | "htm" => "text/html; charset=utf-8",
+        "js" | "mjs" => "text/javascript; charset=utf-8",
+        "css" => "text/css; charset=utf-8",
+        "json" | "map" => "application/json",
+        "svg" => "image/svg+xml",
+        "png" => "image/png",
+        "jpg" | "jpeg" => "image/jpeg",
+        "gif" => "image/gif",
+        "webp" => "image/webp",
+        "avif" => "image/avif",
+        "ico" => "image/x-icon",
+        "woff" => "font/woff",
+        "woff2" => "font/woff2",
+        "wasm" => "application/wasm",
+        "txt" => "text/plain; charset=utf-8",
+        _ => "application/octet-stream",
+    }
+}
+
+async fn static_handler(uri: Uri) -> Response {
+    let path = uri.path().trim_start_matches('/');
+    let path = if path.is_empty() { "index.html" } else { path };
+    match WebAssets::get(path) {
+        Some(file) => {
+            let mime = mime_of(path);
+            (
+                [(header::CONTENT_TYPE, mime)],
+                axum::body::Body::from(file.data),
+            )
+                .into_response()
+        }
+        None => (StatusCode::NOT_FOUND, "not found").into_response(),
+    }
+}
 
 /// Web gateway for herdr terminal sessions.
 #[derive(Parser, Debug)]
 #[command(name = "vibegate", version, about)]
 struct Cli {
     /// herdr socket path (default ~/.config/herdr/herdr.sock)
-    #[arg(long, global = true)]
+    #[arg(long, global = true, env = "VIBEGATE_HERDR_SOCKET")]
     herdr_socket: Option<PathBuf>,
 
     #[command(subcommand)]
@@ -30,12 +75,19 @@ enum Commands {
     /// Print the panes herdr currently exposes (debug helper).
     List,
     /// Run the gateway: WebSocket streaming + file API + static web.
+    #[command(after_help = "EXAMPLES:
+  vibegate run                                          # 127.0.0.1:8480, embedded web, file root = $HOME
+  vibegate run --bind 0.0.0.0:8480                      # LAN — phone opens http://<this-ip>:8480
+  vibegate run --file-root ~/workspace --file-root /tmp # restrict the file API to given roots
+  vibegate --herdr-socket /tmp/herdr.sock run           # custom herdr socket")]
     Run {
         /// Bind address for HTTP/WS.
-        #[arg(long, default_value = "127.0.0.1:8480")]
+        #[arg(long, env = "VIBEGATE_BIND", default_value = "127.0.0.1:8480")]
         bind: String,
-        /// Directory of the built web frontend to serve at `/`.
+        /// Directory of the built web frontend to serve at `/` (debug builds
+        /// only — release builds embed the assets).
         #[arg(long)]
+        #[cfg_attr(not(debug_assertions), arg(hide = true))]
         web_dir: Option<PathBuf>,
         /// Allowed filesystem root for the file API (repeatable).
         #[arg(long = "file-root")]
@@ -176,9 +228,28 @@ async fn run(
 
     let mut app = ws_routes.merge(file_routes);
 
-    if let Some(dir) = web_dir.filter(|d| d.exists()) {
-        tracing::info!("serving web frontend from {}", dir.display());
-        app = app.fallback_service(tower_http::services::ServeDir::new(dir));
+    {
+        #[cfg(debug_assertions)]
+        {
+            // Debug: --web-dir serves the directory live (unchanged behavior);
+            // without it the embedded assets live-read from web/dist.
+            if let Some(dir) = web_dir.filter(|d| d.exists()) {
+                tracing::info!("serving web frontend from {}", dir.display());
+                app = app.fallback_service(tower_http::services::ServeDir::new(dir));
+            } else {
+                tracing::info!("serving embedded web frontend (debug: live-reads web/dist)");
+                app = app.fallback(static_handler);
+            }
+        }
+        #[cfg(not(debug_assertions))]
+        {
+            // Release: assets are baked into the binary — single-file deploy.
+            if web_dir.is_some() {
+                tracing::info!("--web-dir ignored: release builds embed the web frontend");
+            }
+            tracing::info!("serving embedded web frontend");
+            app = app.fallback(static_handler);
+        }
     }
 
     let listener = tokio::net::TcpListener::bind(&bind).await?;
