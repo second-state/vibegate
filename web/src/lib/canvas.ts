@@ -30,20 +30,30 @@ export const filesOpen: Writable<boolean> = writable(false);
 
 /** Prefix marking canvas windows that view a file (path follows the prefix). */
 export const IMAGE_KEY_PREFIX = "img:";
+export const MD_KEY_PREFIX = "md:";
 
-/** Open an image viewer window for a file path (reuses the existing window
- *  when the same path is already open) and focus it. */
-export function openImageWindow(path: string) {
-  const key = IMAGE_KEY_PREFIX + path;
+/** Open a viewer window (image or markdown) for a file path, reusing an
+ *  existing window for the same path. */
+function openFileWindow(prefix: string, w: number, h: number) {
   const map = get(windows);
-  if (!map.has(key)) {
-    const rect = { x: 0, y: 0, w: 640, h: 480 };
+  if (!map.has(prefix)) {
+    const rect = { x: 0, y: 0, w, h };
     const pos = arrangeNewTerminal([...map.values()]);
     rect.x = pos.x;
     rect.y = pos.y;
-    windows.set(new Map(map).set(key, rect));
+    windows.set(new Map(map).set(prefix, rect));
   }
-  focusPrefix.set(key);
+  focusPrefix.set(prefix);
+}
+
+/** Open an image viewer window for a file path. */
+export function openImageWindow(path: string) {
+  openFileWindow(IMAGE_KEY_PREFIX + path, 640, 480);
+}
+
+/** Open a markdown viewer window for a file path. */
+export function openMdWindow(path: string) {
+  openFileWindow(MD_KEY_PREFIX + path, 720, 560);
 }
 
 /** The canvas TouchZoom controller (set by Canvas on mount). */

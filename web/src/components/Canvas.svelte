@@ -12,12 +12,14 @@
     ANCHOR_X,
     ANCHOR_Y,
     IMAGE_KEY_PREFIX,
+    MD_KEY_PREFIX,
   } from "../lib/canvas";
   import { connection } from "../lib/connection";
   import { appearance, resolveBgUrl } from "../lib/appearance";
   import { t } from "../lib/i18n";
   import TermWindow from "./TermWindow.svelte";
   import ImageWindow from "./ImageWindow.svelte";
+  import MdWindow from "./MdWindow.svelte";
 
   const connState = connection.state;
 
@@ -104,6 +106,8 @@
     {#each $orderedPrefixes as key (key)}
       {#if key.startsWith(IMAGE_KEY_PREFIX)}
         <ImageWindow path={key.slice(IMAGE_KEY_PREFIX.length)} {zoom} />
+      {:else if key.startsWith(MD_KEY_PREFIX)}
+        <MdWindow path={key.slice(MD_KEY_PREFIX.length)} {zoom} />
       {:else}
         <TermWindow prefix={key} {zoom} />
       {/if}
