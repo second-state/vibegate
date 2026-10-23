@@ -116,6 +116,9 @@ enum Commands {
   vibegate run --file-root ~/workspace --file-root /tmp # restrict the file API to given roots
   vibegate --herdr-socket /tmp/herdr.sock run           # custom herdr socket")]
     Run {
+        /// Spawn a detached daemon and return immediately.
+        #[arg(short = 'd', long = "detach")]
+        detach: bool,
         /// Bind address for HTTP/WS.
         #[arg(long, env = "VIBEGATE_BIND", default_value = "127.0.0.1:8480")]
         bind: String,
@@ -144,17 +147,11 @@ enum Commands {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    tracing_subscriber::fmt()
-        .with_env_filter(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "info".into()),
-        )
-        .init();
+    init_logger();
 
     let cli = Cli::parse();
-    let herdr = Arc::new(Herdr::new(
-        cli.herdr_socket.unwrap_or_else(Herdr::default_socket),
-    ));
+    let herdr_socket = cli.herdr_socket.clone();
+    let herdr = Arc::new(Herdr::new(herdr_socket.clone().unwrap_or_else(Herdr::default_socket)));
 
     match cli.command {
         Commands::List => {
@@ -175,10 +172,105 @@ async fn main() -> Result<()> {
             }
             Ok(())
         }
-        Commands::Run { bind, web_dir, file_roots } => run(herdr, bind, web_dir, file_roots).await,
+        Commands::Run { detach, bind, web_dir, file_roots } => {
+            if detach {
+                spawn_detached(&bind, web_dir.as_ref(), &file_roots, herdr_socket.as_deref()).await
+            } else {
+                run(herdr, bind, web_dir, file_roots).await
+            }
+        }
         Commands::Stop { bind } => stop_gateway(&bind).await,
         Commands::Status { bind } => status_gateway(&bind).await,
     }
+}
+
+/// Foreground runs log to stdio; the detached daemon (VIBEGATE_LOG_FILE set
+/// by the launcher) appends to that file instead. RUST_LOG still wins.
+fn init_logger() {
+    let filter =
+        tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into());
+    let file = std::env::var("VIBEGATE_LOG_FILE").ok().and_then(|path| {
+        if let Some(dir) = std::path::Path::new(&path).parent() {
+            std::fs::create_dir_all(dir).ok();
+        }
+        std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&path)
+            .ok()
+    });
+    match file {
+        Some(file) => tracing_subscriber::fmt()
+            .with_env_filter(filter)
+            .with_writer(file)
+            .init(),
+        None => tracing_subscriber::fmt().with_env_filter(filter).init(),
+    }
+}
+
+/// Launcher for `run -d`: refuse double-starts (probe /api/status first),
+/// then exec ourselves detached with stdio into the log file. The child runs
+/// the same foreground `run`; only VIBEGATE_LOG_FILE tells it to log to file.
+async fn spawn_detached(
+    bind: &str,
+    web_dir: Option<&PathBuf>,
+    file_roots: &[PathBuf],
+    herdr_socket: Option<&std::path::Path>,
+) -> Result<()> {
+    let base = format!("http://{bind}");
+    if let Ok(buf) = raw_http(&base, "GET /api/status HTTP/1.1\r\n").await {
+        let body = buf.split("\r\n\r\n").nth(1).unwrap_or("");
+        let json = body
+            .trim_start_matches(|c: char| c != '{')
+            .trim_end_matches(|c: char| c != '}');
+        let version = serde_json::from_str::<serde_json::Value>(json)
+            .ok()
+            .and_then(|v| v["version"].as_str().map(String::from))
+            .unwrap_or_else(|| env!("CARGO_PKG_VERSION").to_string());
+        println!("vibegate {version} is already running on {bind}");
+        return Ok(());
+    }
+
+    let exe = std::env::current_exe().context("locate current executable")?;
+    // An explicit VIBEGATE_LOG_FILE from the caller wins; default otherwise.
+    let log_path = match std::env::var("VIBEGATE_LOG_FILE") {
+        Ok(p) if !p.is_empty() => PathBuf::from(p),
+        _ => std::env::var("HOME")
+            .map(|h| PathBuf::from(h).join(".vibegate").join("logs").join("vibegate.log"))
+            .unwrap_or_else(|_| PathBuf::from("vibegate.log")),
+    };
+    if let Some(dir) = log_path.parent() {
+        std::fs::create_dir_all(dir).ok();
+    }
+    let log = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&log_path)
+        .context("open daemon log file")?;
+    let err = log.try_clone().context("clone log file handle")?;
+
+    use std::os::unix::process::CommandExt;
+    let mut cmd = std::process::Command::new(&exe);
+    cmd.arg("run")
+        .arg("--bind")
+        .arg(bind)
+        .env("VIBEGATE_LOG_FILE", &log_path)
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::from(log))
+        .stderr(std::process::Stdio::from(err))
+        .process_group(0); // detach from the terminal's process group
+    for r in file_roots {
+        cmd.arg("--file-root").arg(r);
+    }
+    if let Some(wd) = web_dir {
+        cmd.arg("--web-dir").arg(wd);
+    }
+    if let Some(sock) = herdr_socket {
+        cmd.arg("--herdr-socket").arg(sock);
+    }
+    cmd.spawn().context("spawn detached daemon")?;
+    println!("vibegate started in background on {bind} (log: {})", log_path.display());
+    Ok(())
 }
 
 /// Raw minimal HTTP — one control call doesn't justify a client crate.
