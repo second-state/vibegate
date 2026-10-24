@@ -53,6 +53,7 @@ vibegate list
 | `run -d` | 以守护进程方式启动,立即返回 |
 | `stop` | 优雅关停一个在跑的网关(仅限本机来源) |
 | `status` | 显示网关是否在跑、什么版本 |
+| `tui` | 全屏仪表盘:网关状态、日志尾部、启停控制 |
 | `update [TAG]` | 从 GitHub Releases 自更新(默认最新稳定版) |
 | `list` | 打印网关能看到的 herdr 面板(调试用) |
 
@@ -73,9 +74,23 @@ vibegate status                       # vibegate 0.1.0 — running
 vibegate stop                         # 优雅关停
 ```
 
-守护进程日志追加在 `~/.vibegate/logs/vibegate.log`(可用 `VIBEGATE_LOG_FILE`
-覆盖;单文件 10MB 轮转,保留 5 天)。重复 `run -d` 会报已运行的版本,不会双开。
-前台 `run` 保留给 systemd 这类 supervisor。
+守护进程日志写入 `~/.vibegate/logs/`——当前文件为
+`vibegate_rCURRENT.log`,10MB 轮转、保留 5 天(可用 `VIBEGATE_LOG_FILE`
+覆盖)。重复 `run -d` 会报已运行的版本,不会双开。前台 `run` 保留给
+systemd 这类 supervisor。
+
+## herdr 插件
+
+仓库自带插件清单(`herdr-plugin.toml`),把 checkout 链接进 herdr:
+
+```bash
+herdr plugin link /path/to/vibegate
+```
+
+herdr 菜单里会多一个动作——**Open vibegate**——打开一个全屏 pane 跑
+`try-run.sh`:首次使用会安装 vibegate(方向键菜单:本地 checkout 或
+GitHub release),然后进入 `tui` 仪表盘(网关状态、日志尾部、启停控制)。
+关闭 pane 即退出 TUI。
 
 ## 网页界面
 
@@ -88,8 +103,10 @@ vibegate stop                         # 优雅关停
 - **辅助键** — 悬浮在被激活终端下方:粘滞 `Ctrl / Alt / Shift`(下一次按键,
   按钮或软键盘都算,附带该修饰键)、方向键、滚动键、`1×` 缩放复位。位置和
   显隐在菜单里调(悬浮 / 置顶 / 隐藏)
-- **✋ 画布模式** — 所有窗口点击穿透:拖动、捏合都变成操作画布。点按钮或
-  **任意位置双指轻点**切换;激活时辅助键自动隐藏
+- **画布模式**(「文件」左边的 ![](canvas-mode-icon.svg) 十字星按钮)—
+  除标题栏外所有窗口点击穿透:拖动、捏合都变成操作画布,但关闭 / 重连 /
+  按住标题栏拖动窗口仍然可用。点按钮或**任意位置双指轻点**切换;激活时
+  辅助键自动隐藏
 - **文件** — 浏览设定的根目录;`⇧ 上传` 传文件(不限大小、支持断点续传,
   失败出现 `↻ 重传` 按钮);`⇩` 下载;点图片或 `.md` 打开成画布窗口
   (Markdown 渲染表格、代码和 mermaid 图表)

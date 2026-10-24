@@ -7,7 +7,7 @@ windows you can pan, zoom and rearrange from a phone or desktop.
 
 The release binary embeds the entire web frontend: copy it anywhere, run it, done.
 
-> 中文说明见 [docs/README.zh-CN.md](docs/README.zh-CN.md)。
+> Chinese guide: [docs/README.zh-CN.md](docs/README.zh-CN.md).
 
 ## Requirements
 
@@ -54,6 +54,7 @@ vibegate list
 | `run -d` | Start it as a detached daemon and return immediately |
 | `stop` | Gracefully stop a running gateway (loopback callers only) |
 | `status` | Show whether a gateway is running and which version |
+| `tui` | Fullscreen dashboard: gateway status, log tail, start/stop/quit |
 | `update [TAG]` | Self-update from GitHub Releases (default: latest stable) |
 | `list` | Print the herdr panes the gateway can see (debug helper) |
 
@@ -74,10 +75,26 @@ vibegate status                       # vibegate 0.1.0 — running
 vibegate stop                         # graceful shutdown
 ```
 
-The daemon appends logs to `~/.vibegate/logs/vibegate.log` (set
-`VIBEGATE_LOG_FILE` to override; files rotate at 10 MB, 5 days retention).
-Starting a second instance is refused with the running version. Foreground
-`run` stays available for systemd-style supervisors.
+The daemon appends logs to `~/.vibegate/logs/` — current file
+`vibegate_rCURRENT.log`, rotated at 10 MB with 5-day retention (set
+`VIBEGATE_LOG_FILE` to override). Starting a second instance is refused with
+the running version. Foreground `run` stays available for systemd-style
+supervisors.
+
+## herdr plugin
+
+vibegate ships a plugin manifest (`herdr-plugin.toml`). Link a checkout into
+herdr:
+
+```bash
+herdr plugin link /path/to/vibegate
+```
+
+That adds one action to herdr's menus — **Open vibegate** — which opens a
+full-coverage pane running `try-run.sh`: on first use it installs vibegate
+(arrow-key menu: local checkout or GitHub release), then shows the `tui`
+dashboard (gateway status, log tail, start/stop/quit). Closing the pane stops
+the TUI.
 
 ## Web UI
 
@@ -93,9 +110,11 @@ Starting a second instance is refused with the running version. Foreground
 - **Keybar** — floating toolbar under the focused terminal: sticky
   `Ctrl / Alt / Shift` (the next key, from the keybar or the soft keyboard,
   carries it), arrows, scroll keys, `1×` zoom reset. Reposition or hide it in
-  the menu (悬浮 / 置顶 / 隐藏)
-- **✋ canvas mode** — all windows become click-through: drags and pinches
-  navigate the canvas instead of typing. Toggle with the button or a
+  the menu (Float / Top / Hidden)
+- **Canvas mode** (![](docs/canvas-mode-icon.svg) next to Files) — all
+  windows become click-through except their title bars: drags and pinches
+  navigate the canvas instead of typing, while close / reconnect / dragging
+  a window by its title bar keeps working. Toggle with the button or a
   two-finger tap anywhere; the keybar hides while it is on
 - **Files** — browse the configured roots; `⇧ Upload` sends files (any size,
   resumable — failed uploads get a `↻ Retry` button); `⇩` downloads; click an
