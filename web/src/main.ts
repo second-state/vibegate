@@ -10,6 +10,8 @@ import {
   closeWindow,
   zoomController,
   canvasOnly,
+  openImageWindow,
+  openMdWindow,
 } from "./lib/canvas";
 
 const app = mount(App, {
@@ -25,6 +27,8 @@ const app = mount(App, {
   closeWindow,
   zoomController,
   canvasOnly,
+  openImageWindow,
+  openMdWindow,
 };
 
 export default app;

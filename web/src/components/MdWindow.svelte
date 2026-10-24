@@ -25,11 +25,20 @@
 
   marked.setOptions({ gfm: true, breaks: false });
 
-  /** Render the fetched markdown: sanitize, then lazily render mermaid
-   *  fences into SVG (mermaid only loads when a diagram is actually present). */
+  /** Render the fetched markdown: sanitize, resolve relative images to the
+   *  gateway file API, then lazily render mermaid fences into SVG (mermaid
+   *  only loads when a diagram is actually present). */
   async function render(md: string) {
     const html = DOMPurify.sanitize(marked.parse(md) as string);
     bodyEl.innerHTML = html;
+    // Rewrite relative <img> sources against this file's directory.
+    const base = path.includes("/") ? path.slice(0, path.lastIndexOf("/") + 1) : "";
+    bodyEl.querySelectorAll("img").forEach((img) => {
+      const src = img.getAttribute("src") ?? "";
+      if (!src || /^(https?:|data:)/i.test(src)) return;
+      const full = base + src.replace(/^\.\//, "");
+      img.src = `${connection.apiBase}/api/file?path=${encodeURIComponent(full)}`;
+    });
     const blocks = [
       ...bodyEl.querySelectorAll("pre > code.language-mermaid"),
     ];
