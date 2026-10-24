@@ -9,6 +9,7 @@ import {
   focusPrefix,
   closeWindow,
   zoomController,
+  canvasOnly,
 } from "./lib/canvas";
 
 const app = mount(App, {
@@ -23,6 +24,7 @@ const app = mount(App, {
   focusPrefix,
   closeWindow,
   zoomController,
+  canvasOnly,
 };
 
 export default app;

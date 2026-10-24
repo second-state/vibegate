@@ -202,7 +202,7 @@ import { stopNative, nativePointerDown } from "../lib/actions";
   >
     <!-- Header / drag handle -->
     <div
-      class="flex h-8 shrink-0 cursor-grab select-none items-center gap-2 border-b border-slate-800 bg-[#1f2233] px-2 active:cursor-grabbing"
+      class="pointer-events-auto flex h-8 shrink-0 cursor-grab select-none items-center gap-2 border-b border-slate-800 bg-[#1f2233] px-2 active:cursor-grabbing"
       role="presentation"
       use:nativePointerDown={headerDown}
       on:pointermove={headerMove}
@@ -270,7 +270,7 @@ import { stopNative, nativePointerDown } from "../lib/actions";
 
     <!-- Resize handle -->
     <div
-      class="absolute -bottom-1.5 -right-1.5 h-9 w-9 cursor-nwse-resize touch-none"
+      class="pointer-events-auto absolute -bottom-1.5 -right-1.5 h-9 w-9 cursor-nwse-resize touch-none"
       role="presentation"
       use:nativePointerDown={resizeDown}
       on:pointermove={resizeMove}
