@@ -26,7 +26,6 @@ fn detect() -> Result<(String, String), String> {
         ("linux", "x86_64") => Ok(("vibegate-linux-x64".into(), "vibegate".into())),
         ("linux", "aarch64") => Ok(("vibegate-linux-arm64".into(), "vibegate".into())),
         ("macos", "aarch64") => Ok(("vibegate-macos-arm64".into(), "vibegate".into())),
-        ("windows", "x86_64") => Ok(("vibegate-windows-x64.exe".into(), "vibegate.exe".into())),
         (os, arch) => Err(format!(
             "no prebuilt binary for {os}/{arch} — check https://github.com/{REPO}/releases"
         )),
