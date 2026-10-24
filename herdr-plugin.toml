@@ -1,0 +1,37 @@
+id = "vibegate"
+name = "Vibegate"
+version = "0.1.0"
+min_herdr_version = "0.7.5"
+description = "Open herdr agent panes on a browser canvas. Runs a single-binary web gateway (run -d / stop / status) that streams terminals, files and markdown to any phone or desktop — a mobile-friendly sshx alternative."
+platforms = ["linux", "macos"]
+
+# linux/macOS: install.sh downloads the prebuilt release binary into
+# ~/.cargo/bin; VIBEGATE_FALLBACK_BUILD=1 makes it build from the fetched
+# checkout when the download fails, and VIBEGATE_NONINTERACTIVE=1 suppresses
+# the interactive prompts (old-version cleanup / PATH rc) — herdr runs this
+# build non-interactively. Windows: no prebuilt installer yet, build from
+# source.
+[[build]]
+platforms = ["linux", "macos"]
+command = ["bash", "-c", "VIBEGATE_NONINTERACTIVE=1 VIBEGATE_FALLBACK_BUILD=1 ./install.sh"]
+
+[[build]]
+platforms = ["windows"]
+command = ["cargo", "install", "--path", "."]
+
+# The only action: open a full-coverage pane running try-run.sh (installs
+# vibegate if missing, then shows the herdr-tui dashboard).
+[[actions]]
+id = "open"
+title = "Open vibegate"
+contexts = ["workspace", "global"]
+command = ["herdr", "plugin", "pane", "open", "--plugin", "vibegate", "--entrypoint", "tui", "--placement", "zoomed", "--focus"]
+
+# Full-coverage pane (zoomed = fills the workspace). try-run.sh installs
+# vibegate on first use and then execs `vibegate herdr-tui`; the pane closes
+# when the TUI exits.
+[[panes]]
+id = "tui"
+title = "Vibegate"
+placement = "zoomed"
+command = ["bash", "try-run.sh"]

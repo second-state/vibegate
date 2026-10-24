@@ -2,6 +2,7 @@ mod files;
 mod herdr;
 mod pty;
 mod term;
+mod tui;
 mod update;
 mod ws;
 
@@ -138,6 +139,8 @@ enum Commands {
         #[arg(long, default_value = "http://127.0.0.1:8480")]
         bind: String,
     },
+    /// Fullscreen status dashboard for the herdr plugin pane.
+    Tui,
     /// Show whether a gateway is running and which version.
     Status {
         /// Base URL of the running gateway.
@@ -188,6 +191,7 @@ async fn main() -> Result<()> {
         }
         Commands::Stop { bind } => stop_gateway(&bind).await,
         Commands::Status { bind } => status_gateway(&bind).await,
+        Commands::Tui => tui::run().await,
         Commands::Update { tag } => {
             update::run(Some(tag)).await.map_err(anyhow::Error::msg)
         }
