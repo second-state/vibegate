@@ -13,15 +13,15 @@ if command -v vibegate >/dev/null 2>&1; then
   exec vibegate tui
 fi
 
-# ── options: [local install] [github install] [cancel] ──
+# ── options: [github install] [local install] [cancel] ──
 OPTS=()
 CMDS=()
-if [ -f "$DIR/install.sh" ]; then
-  OPTS+=("Install — local checkout (cargo build)")
-  CMDS+=("local")
-fi
 OPTS+=("Install — from GitHub (prebuilt)")
 CMDS+=("github")
+if [ -f "$DIR/install.sh" ]; then
+  OPTS+=("Install — from this checkout (install.sh)")
+  CMDS+=("local")
+fi
 OPTS+=("Cancel")
 CMDS+=("cancel")
 N=${#OPTS[@]}
@@ -61,16 +61,27 @@ read_key() {
   esac
 }
 
+fail_wait() {
+  echo "install failed — press any key to close"
+  read -rsn1
+}
+
 run_selected() {
   echo
   case "${CMDS[sel]}" in
     local)
       echo "── installing (local checkout) ──"
-      VIBEGATE_NONINTERACTIVE=1 VIBEGATE_FALLBACK_BUILD=1 bash "$DIR/install.sh" || exit 1
+      VIBEGATE_NONINTERACTIVE=1 VIBEGATE_FALLBACK_BUILD=1 bash "$DIR/install.sh" || {
+        fail_wait
+        return 1
+      }
       ;;
     github)
       echo "── installing (GitHub) ──"
-      curl -fsSL https://raw.githubusercontent.com/second-state/vibegate/main/install.sh | bash || exit 1
+      curl -fsSL https://raw.githubusercontent.com/second-state/vibegate/main/install.sh | bash || {
+        fail_wait
+        return 1
+      }
       ;;
     *)
       exit 0 # Cancel: the pane closes with the process
@@ -78,7 +89,8 @@ run_selected() {
   esac
   command -v vibegate >/dev/null 2>&1 || {
     echo "vibegate still not found after install — check your PATH (see install output)"
-    exit 1
+    fail_wait
+    return 1
   }
   echo "── install complete, starting vibegate tui ──"
   sleep 1
