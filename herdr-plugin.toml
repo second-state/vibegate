@@ -1,6 +1,6 @@
 id = "vibegate"
 name = "Vibegate"
-version = "0.1.0"
+version = "0.1.1"
 min_herdr_version = "0.7.5"
 description = "Open herdr agent panes on a browser canvas. Runs a single-binary web gateway (run -d / stop / status) that streams terminals, files and markdown to any phone or desktop — a mobile-friendly sshx alternative."
 platforms = ["linux", "macos"]
