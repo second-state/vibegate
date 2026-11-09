@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="1024" height="1024">
+  <!-- 蝾螈 2 号(棱角版):矩形外鳃(90°/45°/0°)+ 七边形头,无鼻无嘴 -->
+  <g fill="#D97757">
+    <rect x="171" y="100" width="28" height="80"/>
+    <rect x="113" y="134" width="90" height="28" transform="rotate(45 158 148)"/>
+    <rect x="90" y="286" width="90" height="28"/>
+    <rect x="313" y="100" width="28" height="80"/>
+    <rect x="309" y="134" width="90" height="28" transform="rotate(-45 354 148)"/>
+    <rect x="332" y="286" width="90" height="28"/>
+  </g>
+  <polygon points="140,190 256,135 372,190 395,270 330,345 182,345 117,270" fill="#D97757"/>
+  <rect x="173" y="217" width="32" height="64" fill="#FFFFFF"/>
+  <rect x="307" y="217" width="32" height="64" fill="#FFFFFF"/>
+</svg>

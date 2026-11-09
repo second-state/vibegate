@@ -97,6 +97,7 @@
   // --- header drag ---
   let drag: { px: number; py: number; x: number; y: number } | null = null;
   function headerDown(e: PointerEvent) {
+    if (e.button !== 0) return; // right-drag belongs to the canvas
     if (!rect) return;
     focusPrefix.set(key());
     drag = { px: e.clientX, py: e.clientY, x: rect.x, y: rect.y };

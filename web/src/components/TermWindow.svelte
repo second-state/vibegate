@@ -111,6 +111,7 @@ import { stopNative, nativePointerDown } from "../lib/actions";
   // --- header drag ---
   let drag: { px: number; py: number; x: number; y: number } | null = null;
   function headerDown(e: PointerEvent) {
+    if (e.button !== 0) return; // right-drag belongs to the canvas
     if (!rect) return;
     focusPrefix.set(prefix);
     drag = { px: e.clientX, py: e.clientY, x: rect.x, y: rect.y };
@@ -132,6 +133,7 @@ import { stopNative, nativePointerDown } from "../lib/actions";
   let resizing: { px: number; py: number; w: number; h: number } | null = null;
   let resizeTimer: ReturnType<typeof setTimeout> | null = null;
   function resizeDown(e: PointerEvent) {
+    if (e.button !== 0) return; // right-drag belongs to the canvas
     if (!rect) return;
     focusPrefix.set(prefix);
     e.stopPropagation();
