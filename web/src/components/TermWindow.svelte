@@ -199,6 +199,7 @@ import { stopNative, nativePointerDown } from "../lib/actions";
     use:stopNative={["dblclick"]}
     role="presentation"
     data-focused-window={focused ? "1" : undefined}
+    data-window="1"
   >
     <!-- Header / drag handle -->
     <div

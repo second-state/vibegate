@@ -9,6 +9,7 @@
     zoomController,
     canvasZoom,
     canvasMoved,
+    canvasOnly,
     ANCHOR_X,
     ANCHOR_Y,
     IMAGE_KEY_PREFIX,
@@ -37,6 +38,27 @@
   onMount(() => {
     touchZoom = new TouchZoom(fabric);
     zoomController.set(touchZoom);
+    // Middle-click on empty canvas toggles canvas mode (desktop shortcut).
+    // Only when the hit element is the fabric itself AND the point is not
+    // inside any window — middle-click over a window (e.g. primary-selection
+    // paste into a terminal) is left alone.
+    const middleToggle = (e: MouseEvent) => {
+      if (e.button !== 1) return;
+      if (document.elementFromPoint(e.clientX, e.clientY) !== fabric) return;
+      const insideWindow = [...document.querySelectorAll("[data-window]")].some((el) => {
+        const r = el.getBoundingClientRect();
+        return (
+          e.clientX >= r.left &&
+          e.clientX <= r.right &&
+          e.clientY >= r.top &&
+          e.clientY <= r.bottom
+        );
+      });
+      if (insideWindow) return;
+      e.preventDefault(); // no autoscroll
+      canvasOnly.update((v) => !v);
+    };
+    fabric.addEventListener("mousedown", middleToggle);
     const off = touchZoom.onMove(() => {
       center = touchZoom.center;
       zoom = touchZoom.zoom;
@@ -51,6 +73,7 @@
     });
     return () => {
       off();
+      fabric.removeEventListener("mousedown", middleToggle);
       touchZoom.destroy();
       zoomController.set(null);
     };
