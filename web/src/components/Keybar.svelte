@@ -50,12 +50,12 @@
   $: barX = Math.round(clamp(winLeft, 8, vw - barW - 8));
   $: barY = Math.round(clamp(winBottom, 8, vh - barH - 8));
 
-  /** Quick keys: label → raw bytes sent to `pty_in`. */
-  const KEYS_ROW1: [string, string][] = [
-    ["Esc", "\x1b"],
-    ["Tab", "\t"],
-    ["⏎", "\r"],
-    ["⌫", "\x7f"],
+  /** Quick keys row 1. `1×` is an action (zoom reset), not a keypress. */
+  const KEYS_ROW1: { label: string; bytes?: string; action?: "resetZoom" }[] = [
+    { label: "Esc", bytes: "\x1b" },
+    { label: "Tab", bytes: "\t" },
+    { label: "1×", action: "resetZoom" },
+    { label: "⌫", bytes: "\x7f" },
   ];
 
   /** Arrow cluster in keyboard layout (inverted T): ↑ on top, ← ↓ → below. */
@@ -133,12 +133,18 @@
       <div class="flex min-w-0 flex-1 items-start gap-3">
         <div class="flex min-w-0 flex-1 flex-col gap-1">
           <div class="flex gap-1 overflow-x-auto">
-            {#each KEYS_ROW1 as [label, bytes] (label)}
+            {#each KEYS_ROW1 as k (k.label)}
               <button
-                class={keyCls}
-                on:pointerdown|preventDefault={() => press(bytes)}
+                class={k.action === "resetZoom" && Math.abs($canvasZoom - 1) > 0.01
+                  ? modOn
+                  : keyCls}
+                title={k.action === "resetZoom"
+                  ? $t("resetZoomTitle", { zoom: $canvasZoom.toFixed(1) })
+                  : undefined}
+                on:pointerdown|preventDefault={() =>
+                  k.action === "resetZoom" ? resetZoom() : press(k.bytes ?? "")}
               >
-                {label}
+                {k.label}
               </button>
             {/each}
           </div>
@@ -165,11 +171,10 @@
               Shift
             </button>
             <button
-              class="{Math.abs($canvasZoom - 1) > 0.01 ? modOn : modOff}"
-              title={$t("resetZoomTitle", { zoom: $canvasZoom.toFixed(1) })}
-              on:pointerdown|preventDefault={resetZoom}
+              class={modOff}
+              on:pointerdown|preventDefault={() => press("\r")}
             >
-              1×
+              ⏎
             </button>
           </div>
         </div>
