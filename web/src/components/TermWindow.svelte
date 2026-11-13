@@ -263,11 +263,21 @@ import { stopNative, nativePointerDown } from "../lib/actions";
       <div bind:this={termEl} class="relative h-full w-full" on:wheel|capture={wheel}></div>
     </div>
 
-    {#if status === "ended" || status === "error"}
+    {#if (status === "ended" || status === "error") && instance}
+      <!-- click anywhere on the mask reconnects -->
+      <div
+        class="absolute inset-0 top-8 z-10 flex items-center justify-center bg-[#16161e]/85"
+        role="button"
+        tabindex="0"
+        title={$t("reconnect")}
+        on:mousedown={(e) => e.button === 0 && session?.reopen()}
+        on:keydown={(e) => (e.key === "Enter" || e.key === " ") && session?.reopen()}
+      >
+        <p class="text-xs text-slate-400">{$t("disconnectedHint")}</p>
+      </div>
+    {:else if status === "ended" || status === "error"}
       <div class="pointer-events-none absolute inset-0 top-8 z-10 flex items-center justify-center bg-[#16161e]/85">
-        <p class="text-xs text-slate-400">
-          {#if instance}{$t("disconnectedHint")}{:else}{$t("paneGoneHint")}{/if}
-        </p>
+        <p class="text-xs text-slate-400">{$t("paneGoneHint")}</p>
       </div>
     {/if}
 

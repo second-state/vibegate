@@ -62,7 +62,7 @@ const zh = {
   reconnect: "重新连接",
   closeWindow: "关闭窗口(不影响远端会话)",
   gridSize: "终端大小(列×行)",
-  disconnectedHint: "连接已断开——点标题栏 ⟳ 重新连接",
+  disconnectedHint: "连接已断开——点击遮罩任意位置重新连接",
   paneGoneHint: "远端面板已关闭,窗口即将移除…",
 
   // Keybar
@@ -158,7 +158,7 @@ const en: Record<MsgKey, string> = {
   reconnect: "Reconnect",
   closeWindow: "Close window (remote session keeps running)",
   gridSize: "Terminal size (cols×rows)",
-  disconnectedHint: "Disconnected — click ⟳ in the title bar to reconnect",
+  disconnectedHint: "Disconnected — click anywhere on this overlay to reconnect",
   paneGoneHint: "Remote pane closed — removing this window…",
 
   // Keybar
