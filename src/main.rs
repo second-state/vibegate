@@ -12,7 +12,7 @@ use std::sync::Arc;
 
 use anyhow::{Context as _, Result};
 use axum::extract::ConnectInfo;
-use axum::http::{header, StatusCode, Uri};
+use axum::http::{StatusCode, Uri, header};
 use axum::response::{IntoResponse, Response};
 use clap::{Parser, Subcommand};
 use serde_json::json;
@@ -105,7 +105,12 @@ struct Cli {
 
     /// run: bind address to listen on; stop/status: gateway to talk to
     /// (0.0.0.0 dials loopback).
-    #[arg(long, global = true, env = "VIBEGATE_BIND", default_value = "127.0.0.1:8480")]
+    #[arg(
+        long,
+        global = true,
+        env = "VIBEGATE_BIND",
+        default_value = "127.0.0.1:8480"
+    )]
     bind: String,
 
     #[command(subcommand)]
@@ -155,7 +160,9 @@ async fn main() -> Result<()> {
 
     let cli = Cli::parse();
     let herdr_socket = cli.herdr_socket.clone();
-    let herdr = Arc::new(Herdr::new(herdr_socket.clone().unwrap_or_else(Herdr::default_socket)));
+    let herdr = Arc::new(Herdr::new(
+        herdr_socket.clone().unwrap_or_else(Herdr::default_socket),
+    ));
 
     match cli.command {
         Commands::List => {
@@ -176,9 +183,19 @@ async fn main() -> Result<()> {
             }
             Ok(())
         }
-        Commands::Run { detach, web_dir, file_roots } => {
+        Commands::Run {
+            detach,
+            web_dir,
+            file_roots,
+        } => {
             if detach {
-                spawn_detached(&cli.bind, web_dir.as_ref(), &file_roots, herdr_socket.as_deref()).await
+                spawn_detached(
+                    &cli.bind,
+                    web_dir.as_ref(),
+                    &file_roots,
+                    herdr_socket.as_deref(),
+                )
+                .await
             } else {
                 run(herdr, cli.bind.clone(), web_dir, file_roots).await
             }
@@ -186,9 +203,7 @@ async fn main() -> Result<()> {
         Commands::Stop => stop_gateway(&loopback_base(&cli.bind)).await,
         Commands::Status => status_gateway(&loopback_base(&cli.bind)).await,
         Commands::Tui => tui::run().await,
-        Commands::Update { tag } => {
-            update::run(Some(tag)).await.map_err(anyhow::Error::msg)
-        }
+        Commands::Update { tag } => update::run(Some(tag)).await.map_err(anyhow::Error::msg),
     }
 }
 
@@ -270,7 +285,12 @@ async fn spawn_detached(
     let log_path = match std::env::var("VIBEGATE_LOG_FILE") {
         Ok(p) if !p.is_empty() => PathBuf::from(p),
         _ => std::env::var("HOME")
-            .map(|h| PathBuf::from(h).join(".vibegate").join("logs").join("vibegate.log"))
+            .map(|h| {
+                PathBuf::from(h)
+                    .join(".vibegate")
+                    .join("logs")
+                    .join("vibegate.log")
+            })
             .unwrap_or_else(|_| PathBuf::from("vibegate.log")),
     };
     if let Some(dir) = log_path.parent() {
@@ -303,16 +323,25 @@ async fn spawn_detached(
         cmd.arg("--herdr-socket").arg(sock);
     }
     cmd.spawn().context("spawn detached daemon")?;
-    println!("vibegate started in background on {bind} (log: {})", log_path.display());
+    println!(
+        "vibegate started in background on {bind} (log: {})",
+        log_path.display()
+    );
     Ok(())
 }
 
 /// Client-side base URL for a bind address: 0.0.0.0 means "listen on all
 /// interfaces", so dial loopback instead of 0.0.0.0.
 fn loopback_base(bind: &str) -> String {
-    let bare = bind.trim_start_matches("http://").trim_start_matches("https://");
+    let bare = bind
+        .trim_start_matches("http://")
+        .trim_start_matches("https://");
     let (host, port) = bare.rsplit_once(':').unwrap_or((bare, "80"));
-    let host = if host.is_empty() || host == "0.0.0.0" { "127.0.0.1" } else { host };
+    let host = if host.is_empty() || host == "0.0.0.0" {
+        "127.0.0.1"
+    } else {
+        host
+    };
     format!("http://{host}:{port}")
 }
 
@@ -431,9 +460,11 @@ async fn run(
     }
 
     let roots = if file_roots.is_empty() {
-        vec![std::env::var("HOME")
-            .map(PathBuf::from)
-            .unwrap_or_else(|_| PathBuf::from("/"))]
+        vec![
+            std::env::var("HOME")
+                .map(PathBuf::from)
+                .unwrap_or_else(|_| PathBuf::from("/")),
+        ]
     } else {
         file_roots
     };
@@ -446,7 +477,10 @@ async fn run(
 
     let ws_routes = axum::Router::new()
         .route("/ws", axum::routing::get(ws::ws_handler))
-        .route("/term/{terminal_id}", axum::routing::get(term::term_handler))
+        .route(
+            "/term/{terminal_id}",
+            axum::routing::get(term::term_handler),
+        )
         .with_state(ws_state);
 
     let file_routes = axum::Router::new()
@@ -455,7 +489,10 @@ async fn run(
             "/api/file",
             axum::routing::get(files::download_handler).put(files::upload_handler),
         )
-        .route("/api/upload/status", axum::routing::get(files::upload_status_handler))
+        .route(
+            "/api/upload/status",
+            axum::routing::get(files::upload_status_handler),
+        )
         .route("/api/status", axum::routing::get(status_handler))
         .route("/api/shutdown", axum::routing::post(shutdown_handler))
         .with_state(files_state)
@@ -491,7 +528,11 @@ async fn run(
 
     let listener = tokio::net::TcpListener::bind(&bind).await?;
     tracing::info!("vibegate listening on http://{bind}");
-    axum::serve(listener, app.into_make_service_with_connect_info::<SocketAddr>()).await?;
+    axum::serve(
+        listener,
+        app.into_make_service_with_connect_info::<SocketAddr>(),
+    )
+    .await?;
     Ok(())
 }
 

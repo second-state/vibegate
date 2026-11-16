@@ -35,7 +35,9 @@ pub struct PaneInfo {
 
 impl Herdr {
     pub fn new(socket: impl Into<PathBuf>) -> Self {
-        Self { socket: socket.into() }
+        Self {
+            socket: socket.into(),
+        }
     }
 
     pub fn default_socket() -> PathBuf {
@@ -44,9 +46,7 @@ impl Herdr {
         }
         let config_root = std::env::var("HERDR_CONFIG_ROOT")
             .map(PathBuf::from)
-            .unwrap_or_else(|_| {
-                dirs_or_home().join(".config").join("herdr")
-            });
+            .unwrap_or_else(|_| dirs_or_home().join(".config").join("herdr"));
         config_root.join("herdr.sock")
     }
 
@@ -58,7 +58,8 @@ impl Herdr {
         let id = format!("vibegate-{}", REQ_ID.fetch_add(1, Ordering::Relaxed));
         let req = json!({"id": id, "method": method, "params": params});
         let (rd, mut wr) = stream.into_split();
-        wr.write_all(serde_json::to_string(&req)?.as_bytes()).await?;
+        wr.write_all(serde_json::to_string(&req)?.as_bytes())
+            .await?;
         wr.write_all(b"\n").await?;
         wr.shutdown().await?;
 

@@ -42,7 +42,11 @@ fn start_daemon(addr: String, log: String) {
 
 fn stop_gateway_async(bind: String) {
     tokio::spawn(async move {
-        let _ = raw_http(&bind, "POST /api/shutdown HTTP/1.1\r\nContent-Length: 0\r\n").await;
+        let _ = raw_http(
+            &bind,
+            "POST /api/shutdown HTTP/1.1\r\nContent-Length: 0\r\n",
+        )
+        .await;
     });
 }
 
@@ -271,6 +275,9 @@ mod tests {
         assert!(start >= 8, "label not centered: starts at col {start}");
         // corners intact on the top border
         let top: String = (0..90).map(|x| buf[(x, 0)].symbol().to_string()).collect();
-        assert!(top.starts_with('┌') && top.ends_with('┐'), "corners eaten: {top:?}");
+        assert!(
+            top.starts_with('┌') && top.ends_with('┐'),
+            "corners eaten: {top:?}"
+        );
     }
 }

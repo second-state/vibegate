@@ -78,10 +78,7 @@ fn ask_delete_old() -> bool {
     use std::io::Write;
     std::io::stdout().flush().ok();
     let mut ans = String::new();
-    std::io::stdin()
-        .read_line(&mut ans)
-        .is_ok()
-        && ans.trim().starts_with(['y', 'Y'])
+    std::io::stdin().read_line(&mut ans).is_ok() && ans.trim().starts_with(['y', 'Y'])
 }
 
 /// 入口:`vibegate update [TAG]`。TAG 缺省 = latest(不含 prerelease)。
@@ -143,9 +140,7 @@ pub async fn run(tag: Option<String>) -> Result<(), String> {
     #[cfg(windows)]
     {
         let target = install_dir.join(&name);
-        if target.exists()
-            && version_of(&target).as_deref() == Some(binver.as_str())
-        {
+        if target.exists() && version_of(&target).as_deref() == Some(binver.as_str()) {
             let _ = std::fs::remove_file(&staging);
             println!(
                 "vibegate {binver} is already installed at {} — up to date",
@@ -178,12 +173,10 @@ pub async fn run(tag: Option<String>) -> Result<(), String> {
         .map(|e| e.path())
         .filter(|p| {
             p.is_file()
-                && p.file_name()
-                    .and_then(|n| n.to_str())
-                    .is_some_and(|n| {
-                        n.starts_with(&prefix)
-                            && n[prefix.len()..].starts_with(|c: char| c.is_ascii_digit())
-                    })
+                && p.file_name().and_then(|n| n.to_str()).is_some_and(|n| {
+                    n.starts_with(&prefix)
+                        && n[prefix.len()..].starts_with(|c: char| c.is_ascii_digit())
+                })
         })
         .filter(|p| *p != installed_file)
         .collect();

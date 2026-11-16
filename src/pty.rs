@@ -36,14 +36,21 @@ impl PtyWriteHalf {
             .send((buf.to_vec(), ack_tx))
             .await
             .map_err(|_| std::io::Error::other("pty writer gone"))?;
-        ack_rx.await.map_err(|_| std::io::Error::other("pty writer dropped ack"))?
+        ack_rx
+            .await
+            .map_err(|_| std::io::Error::other("pty writer dropped ack"))?
     }
 
     pub fn resize(&self, rows: u16, cols: u16) -> std::io::Result<()> {
         self.master
             .lock()
             .unwrap()
-            .resize(PtySize { rows, cols, pixel_width: 0, pixel_height: 0 })
+            .resize(PtySize {
+                rows,
+                cols,
+                pixel_width: 0,
+                pixel_height: 0,
+            })
             .map_err(std::io::Error::other)
     }
 }
@@ -72,12 +79,7 @@ impl GatePty {
         )
     }
 
-
-    pub async fn spawn(
-        program: &str,
-        args: &[&str],
-        size: (u16, u16),
-    ) -> Result<Self> {
+    pub async fn spawn(program: &str, args: &[&str], size: (u16, u16)) -> Result<Self> {
         let (rows, cols) = size;
         let pty_system = native_pty_system();
         let pair = pty_system.openpty(PtySize {
@@ -139,5 +141,4 @@ impl GatePty {
             write_tx,
         })
     }
-
 }

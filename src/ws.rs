@@ -8,8 +8,8 @@
 use std::sync::Arc;
 
 use anyhow::Result;
-use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
 use axum::extract::State;
+use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
 use axum::response::IntoResponse;
 use futures_util::{SinkExt, StreamExt};
 use serde::Deserialize;
@@ -34,7 +34,9 @@ pub async fn ws_handler(
 
 async fn control_sock(state: Arc<WsState>, mut sock: WebSocket) {
     let _ = sock
-        .send(Message::text(json!({"type":"hello","protocol":1}).to_string()))
+        .send(Message::text(
+            json!({"type":"hello","protocol":1}).to_string(),
+        ))
         .await;
     let _ = sock.send(Message::text(sessions_json(&state).await)).await;
 
@@ -120,7 +122,11 @@ async fn handle_control(
                 .get("workspace")
                 .and_then(|w| w.get("workspace_id"))
                 .and_then(serde_json::Value::as_str)
-                .or_else(|| result.get("workspace_id").and_then(serde_json::Value::as_str))
+                .or_else(|| {
+                    result
+                        .get("workspace_id")
+                        .and_then(serde_json::Value::as_str)
+                })
                 .map(String::from);
             // Find the fresh pane: poll the snapshot for a pane inside the new
             // workspace (create replies don't carry the pane/terminal ids).
@@ -201,16 +207,16 @@ async fn handle_control(
                 return send_err(out, "kill requires workspace_id").await;
             };
             state.herdr.close_workspace(&ws_id).await?;
-            out.send(Message::text(json!({"type":"killed"}).to_string())).await?;
+            out.send(Message::text(json!({"type":"killed"}).to_string()))
+                .await?;
             Ok(())
         }
         "ping" => {
-            out.send(Message::text(json!({"type":"pong"}).to_string())).await?;
+            out.send(Message::text(json!({"type":"pong"}).to_string()))
+                .await?;
             Ok(())
         }
-        other => {
-            send_err(out, &format!("unknown control type {other:?}")).await
-        }
+        other => send_err(out, &format!("unknown control type {other:?}")).await,
     }
 }
 

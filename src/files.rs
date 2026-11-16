@@ -11,7 +11,7 @@ use std::sync::Arc;
 
 use axum::body::Body;
 use axum::extract::{Query, State};
-use axum::http::{header, StatusCode};
+use axum::http::{StatusCode, header};
 use axum::response::{IntoResponse, Response};
 use serde::Deserialize;
 use serde_json::json;
@@ -144,7 +144,9 @@ pub async fn list_handler(
         if entry.file_name().to_string_lossy().ends_with(".vbp") {
             continue;
         }
-        let Ok(meta) = entry.metadata().await else { continue };
+        let Ok(meta) = entry.metadata().await else {
+            continue;
+        };
         entries.push(json!({
             "name": entry.file_name().to_string_lossy(),
             "is_dir": meta.is_dir(),
@@ -153,7 +155,9 @@ pub async fn list_handler(
         }));
     }
     entries.sort_by(|a, b| {
-        let dir = b.get("is_dir").and_then(serde_json::Value::as_bool)
+        let dir = b
+            .get("is_dir")
+            .and_then(serde_json::Value::as_bool)
             .cmp(&a.get("is_dir").and_then(serde_json::Value::as_bool));
         dir.then_with(|| {
             a.get("name")
@@ -226,7 +230,9 @@ pub async fn upload_status_handler(
             return (StatusCode::OK, json!({"size": 0}).to_string()).into_response();
         }
     };
-    let saved = tokio::fs::read_to_string(&sidecar).await.unwrap_or_default();
+    let saved = tokio::fs::read_to_string(&sidecar)
+        .await
+        .unwrap_or_default();
     if saved.trim() == q.token {
         (StatusCode::OK, json!({"size": meta.len()}).to_string()).into_response()
     } else {
@@ -269,7 +275,9 @@ pub async fn upload_handler(
     use tokio::io::AsyncWriteExt;
     let mut file = if let Some(tok) = &token {
         let sidecar = sidecar_path(&path);
-        let saved = tokio::fs::read_to_string(&sidecar).await.unwrap_or_default();
+        let saved = tokio::fs::read_to_string(&sidecar)
+            .await
+            .unwrap_or_default();
         let existing = tokio::fs::metadata(&path).await.ok().map(|m| m.len());
         if saved.trim() == tok && existing.is_some() {
             // Defensive: the body we're about to append must land exactly at
@@ -299,7 +307,10 @@ pub async fn upload_handler(
         } else {
             // Fresh start: truncate and mark the partial as ours.
             if tokio::fs::write(&sidecar, tok).await.is_err() {
-                return err(StatusCode::INTERNAL_SERVER_ERROR, "cannot mark partial upload");
+                return err(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "cannot mark partial upload",
+                );
             }
             match tokio::fs::File::create(&path).await {
                 Ok(f) => f,
@@ -337,7 +348,10 @@ pub async fn upload_handler(
     if token.is_some() {
         // Request finished cleanly: once the announced total is on disk the
         // upload is complete — drop the sidecar.
-        let len = tokio::fs::metadata(&path).await.map(|m| m.len()).unwrap_or(0);
+        let len = tokio::fs::metadata(&path)
+            .await
+            .map(|m| m.len())
+            .unwrap_or(0);
         if total.map_or(true, |t| len >= t) {
             let _ = tokio::fs::remove_file(sidecar_path(&path)).await;
         }
