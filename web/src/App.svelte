@@ -81,6 +81,7 @@
           drawerOpen.set(true);
           drawerKbd.set(true);
           filesKbd.set(false);
+          filesOpen.set(false); // drawers are mutually exclusive
           const rows = get(drawerRows);
           if (!get(drawerSel) || !rows.includes(get(drawerSel)!)) {
             drawerSel.set(rows[0] ?? null);
@@ -98,6 +99,7 @@
           filesOpen.set(true);
           filesKbd.set(true);
           drawerKbd.set(false);
+          drawerOpen.set(false); // drawers are mutually exclusive
         }
         return;
       }

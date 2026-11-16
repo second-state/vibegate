@@ -91,6 +91,9 @@
       }
       path = body.path;
       entries = body.entries ?? [];
+      // Reset the keyboard selection on directory change (a stale selection
+      // would re-trigger enter/activate on the same-named row above).
+      filesSel.set(body.entries?.[0]?.name ?? null);
     } catch (e) {
       errMsg = String(e);
     } finally {
@@ -98,8 +101,7 @@
     }
   }
 
-  // Load the root listing the first time the panel opens (not on empty-dir
-  // results, which would loop).
+  // Load the current path the first time the panel opens.
   let booted = false;
   $: if (!$filesOpen) booted = false;
   $: if ($filesOpen && !booted) {
@@ -272,11 +274,6 @@
       }
     }
     await load(path);
-  }
-
-  $: if ($filesOpen && !entries.length && !loading && !errMsg) {
-    // First open: fetch the root listing once.
-    load(path);
   }
 </script>
 
