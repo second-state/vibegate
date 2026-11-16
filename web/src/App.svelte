@@ -6,7 +6,20 @@
   import SessionDrawer from "./components/SessionDrawer.svelte";
   import FileDrawer from "./components/FileDrawer.svelte";
   import Keybar from "./components/Keybar.svelte";
-  import { canvasOnly, zoomController, windows, focusPrefix, ANCHOR_X, ANCHOR_Y, getSession } from "./lib/canvas";
+  import {
+    canvasOnly,
+    zoomController,
+    windows,
+    focusPrefix,
+    ANCHOR_X,
+    ANCHOR_Y,
+    getSession,
+    drawerKbd,
+    drawerSel,
+    drawerRows,
+    drawerOpen,
+    openWindow,
+  } from "./lib/canvas";
 
   // Two-finger TAP anywhere toggles canvas mode: quick (≤350ms) and still
   // (≤12px per finger). A pinch moves — it cancels the tap instead of
@@ -20,11 +33,12 @@
     const MAX_MOVE = 12;
 
     /** Exiting canvas mode: give browser focus back to the terminal that was
-     *  focused before, so typing works immediately. */
+     *  focused before, so typing works immediately. 50ms: a freshly opened
+     *  window (drawer Enter) needs a beat to finish mounting. */
     function refocusFocusedTerm() {
       const prefix = get(focusPrefix);
       const s = prefix ? getSession(prefix) : undefined;
-      setTimeout(() => s?.term.textarea?.focus(), 0);
+      setTimeout(() => s?.term.textarea?.focus(), 50);
     }
     function toggleCanvasMode() {
       canvasOnly.update((v) => !v);
@@ -49,11 +63,59 @@
       }
       if (!get(canvasOnly)) return;
       // Enter in canvas mode → back to normal (terminals operable again).
-      if (e.key === "Enter") {
+      if (e.key === "Enter" && !get(drawerKbd)) {
         e.preventDefault();
         canvasOnly.set(false);
         refocusFocusedTerm();
         return;
+      }
+      // e → sessions drawer cycle: closed → open+focused → closed.
+      if (e.key === "e" || e.key === "E") {
+        e.preventDefault();
+        if (get(drawerKbd)) {
+          drawerKbd.set(false);
+          drawerOpen.set(false);
+        } else {
+          drawerOpen.set(true);
+          drawerKbd.set(true);
+          const rows = get(drawerRows);
+          if (!get(drawerSel) || !rows.includes(get(drawerSel)!)) {
+            drawerSel.set(rows[0] ?? null);
+          }
+        }
+        return;
+      }
+      // drawer keyboard mode: j/k/arrows navigate, Enter opens.
+      if (get(drawerKbd) && get(drawerOpen)) {
+        const rows = get(drawerRows);
+        const idx = rows.indexOf(get(drawerSel) ?? "");
+        const move = (d: number) => {
+          if (!rows.length) return;
+          drawerSel.set(rows[Math.min(rows.length - 1, Math.max(0, (idx === -1 ? 0 : idx) + d))]);
+        };
+        if (e.key === "ArrowDown" || e.key === "j") {
+          e.preventDefault();
+          move(1);
+          return;
+        }
+        if (e.key === "ArrowUp" || e.key === "k") {
+          e.preventDefault();
+          move(-1);
+          return;
+        }
+        if (e.key === "Enter") {
+          e.preventDefault();
+          const sel = get(drawerSel);
+          // attach onto the canvas; session (drawer kbd) mode persists so
+          // more sessions can be attached without leaving the drawer
+          if (sel) openWindow(sel);
+          return;
+        }
+        if (e.key === "Escape") {
+          drawerKbd.set(false);
+          e.preventDefault();
+          return;
+        }
       }
       const dir: "left" | "right" | "up" | "down" | null =
         e.key === "ArrowLeft" || e.key === "h" ? "left"

@@ -28,6 +28,11 @@ export const drawerOpen: Writable<boolean> = writable(true);
 /** Whether the file browser panel is visible. */
 export const filesOpen: Writable<boolean> = writable(false);
 
+/** Sessions drawer keyboard-navigation state (canvas-mode `e`). */
+export const drawerKbd: Writable<boolean> = writable(false);
+export const drawerSel: Writable<string | null> = writable(null);
+export const drawerRows: Writable<string[]> = writable([]);
+
 /** Canvas-only mode: windows become pointer-transparent, so every click /
  *  touch reaches the canvas for panning & zooming (a "hand tool"). */
 export const canvasOnly: Writable<boolean> = writable(false);

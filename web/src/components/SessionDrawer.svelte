@@ -1,6 +1,7 @@
 <script lang="ts">
+  import { tick } from "svelte";
   import { discovery } from "../lib/discovery";
-  import { openWindow, focusPrefix, windows, drawerOpen } from "../lib/canvas";
+  import { openWindow, focusPrefix, windows, drawerOpen, drawerKbd, drawerSel, drawerRows } from "../lib/canvas";
   import { writable } from "svelte/store";
   import { connection } from "../lib/connection";
   import { statusColor, statusTextCls, type Instance } from "../lib/discovery";
@@ -22,6 +23,27 @@
 
   $: groups = buildGroups($workspaces, $list);
   $: orphans = $list.filter((p) => !groups.some((g) => g.id === p.workspace_id));
+
+  /** Flat row order (matches the rendered rows) for keyboard navigation. */
+  $: drawerRows.set([
+    ...groups.flatMap((g) => g.panes.map((p) => p.sid)),
+    ...orphans.map((o) => o.sid),
+  ]);
+  // Keyboard selection auto-expands the group containing it.
+  $: if ($drawerKbd && $drawerSel) {
+    const g = groups.find((gr) => gr.panes.some((p) => p.sid === $drawerSel));
+    if (g && $expandedStore[g.id] === false) {
+      expandedStore.update((m) => ({ ...m, [g.id]: true }));
+    }
+  }
+  // …and scrolls itself into view.
+  $: if ($drawerKbd && $drawerSel) {
+    tick().then(() => {
+      document
+        .querySelector(`[data-row="${$drawerSel}"]`)
+        ?.scrollIntoView({ block: "nearest" });
+    });
+  }
 
   function buildGroups(
     wss: { id: string; label: string; number: number }[],
@@ -102,12 +124,14 @@
             <div class="ml-3 flex flex-col gap-0.5 border-l border-slate-800 pl-1">
               {#each g.panes as p (p.sid)}
                 <button
-                  class="flex w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-left text-sm {$focusPrefix ===
-                  p.sid
-                    ? "bg-blue-500/10 text-slate-100"
-                    : $windows.has(p.sid)
-                      ? "text-slate-300 hover:bg-slate-800"
-                      : "text-slate-400 hover:bg-slate-800"}"
+                  data-row={p.sid}
+                  class="flex w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-left text-sm {$drawerKbd && $drawerSel === p.sid
+                    ? 'bg-blue-500/30 ring-1 ring-blue-400/60'
+                    : $focusPrefix === p.sid
+                      ? "bg-blue-500/10 text-slate-100"
+                      : $windows.has(p.sid)
+                        ? "text-slate-300 hover:bg-slate-800"
+                        : "text-slate-400 hover:bg-slate-800"}"
                   on:click={() => openWindow(p.sid)}
                 >
                   <span class="h-1.5 w-1.5 shrink-0 rounded-full {statusColor(p.state)}"></span>
@@ -154,7 +178,10 @@
           <div class="ml-3 flex flex-col gap-0.5 border-l border-slate-800 pl-1">
             {#each orphans as p (p.sid)}
               <button
-                class="flex w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-left text-sm text-slate-400 hover:bg-slate-800"
+                data-row={p.sid}
+                class="flex w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-left text-sm {$drawerKbd && $drawerSel === p.sid
+                  ? 'bg-blue-500/30 ring-1 ring-blue-400/60'
+                  : 'text-slate-400 hover:bg-slate-800'}"
                 on:click={() => openWindow(p.sid)}
               >
                 <span class="h-1.5 w-1.5 shrink-0 rounded-full {statusColor(p.state)}"></span>

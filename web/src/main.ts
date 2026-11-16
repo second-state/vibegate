@@ -12,6 +12,9 @@ import {
   canvasOnly,
   openImageWindow,
   openMdWindow,
+  drawerKbd,
+  drawerSel,
+  drawerOpen,
 } from "./lib/canvas";
 
 const app = mount(App, {
@@ -29,6 +32,9 @@ const app = mount(App, {
   canvasOnly,
   openImageWindow,
   openMdWindow,
+  drawerKbd,
+  drawerSel,
+  drawerOpen,
 };
 
 export default app;
