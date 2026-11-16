@@ -33,6 +33,11 @@ export const drawerKbd: Writable<boolean> = writable(false);
 export const drawerSel: Writable<string | null> = writable(null);
 export const drawerRows: Writable<string[]> = writable([]);
 
+/** Files drawer keyboard-navigation state (canvas-mode `f`). */
+export const filesKbd: Writable<boolean> = writable(false);
+export const filesSel: Writable<string | null> = writable(null);
+export const filesRows: Writable<string[]> = writable([]);
+
 /** Canvas-only mode: windows become pointer-transparent, so every click /
  *  touch reaches the canvas for panning & zooming (a "hand tool"). */
 export const canvasOnly: Writable<boolean> = writable(false);

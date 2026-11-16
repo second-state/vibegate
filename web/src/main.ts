@@ -15,6 +15,9 @@ import {
   drawerKbd,
   drawerSel,
   drawerOpen,
+  filesKbd,
+  filesSel,
+  filesOpen,
 } from "./lib/canvas";
 
 const app = mount(App, {
@@ -35,6 +38,9 @@ const app = mount(App, {
   drawerKbd,
   drawerSel,
   drawerOpen,
+  filesKbd,
+  filesSel,
+  filesOpen,
 };
 
 export default app;

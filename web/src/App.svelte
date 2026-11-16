@@ -19,6 +19,8 @@
     drawerRows,
     drawerOpen,
     openWindow,
+    filesKbd,
+    filesOpen,
   } from "./lib/canvas";
 
   // Two-finger TAP anywhere toggles canvas mode: quick (≤350ms) and still
@@ -78,6 +80,7 @@
         } else {
           drawerOpen.set(true);
           drawerKbd.set(true);
+          filesKbd.set(false);
           const rows = get(drawerRows);
           if (!get(drawerSel) || !rows.includes(get(drawerSel)!)) {
             drawerSel.set(rows[0] ?? null);
@@ -85,6 +88,27 @@
         }
         return;
       }
+      // f → files drawer cycle: closed → open+focused → closed.
+      if (e.key === "f" || e.key === "F") {
+        e.preventDefault();
+        if (get(filesKbd)) {
+          filesKbd.set(false);
+          filesOpen.set(false);
+        } else {
+          filesOpen.set(true);
+          filesKbd.set(true);
+          drawerKbd.set(false);
+        }
+        return;
+      }
+      // files drawer keyboard mode: Escape exits focus mode (drawer stays).
+      if (e.key === "Escape" && get(filesKbd)) {
+        filesKbd.set(false);
+        e.preventDefault();
+        return;
+      }
+      // files drawer keyboard mode: its own listener owns the keys
+      if (get(filesKbd) && get(filesOpen)) return;
       // drawer keyboard mode: j/k/arrows navigate, Enter opens.
       if (get(drawerKbd) && get(drawerOpen)) {
         const rows = get(drawerRows);

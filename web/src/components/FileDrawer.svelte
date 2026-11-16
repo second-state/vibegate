@@ -1,7 +1,8 @@
 <script lang="ts">
-  import { filesOpen, drawerOpen, openImageWindow, openMdWindow } from "../lib/canvas";
+  import { filesOpen, drawerOpen, openImageWindow, openMdWindow, filesKbd, filesSel, filesRows } from "../lib/canvas";
   import { connection } from "../lib/connection";
   import { get } from "svelte/store";
+  import { tick } from "svelte";
   import { t } from "../lib/i18n";
 
   type Entry = {
@@ -16,8 +17,49 @@
   const isImage = (name: string) => IMAGE_EXT.test(name);
   const isMd = (name: string) => MD_EXT.test(name);
 
+  /** Keyboard mode (canvas `f`): navigate entries, Enter activates. */
+  function moveSel(d: number) {
+    const rows = get(filesRows);
+    if (!rows.length) return;
+    const idx = rows.indexOf(get(filesSel) ?? "");
+    filesSel.set(rows[Math.min(rows.length - 1, Math.max(0, (idx === -1 ? 0 : idx) + d))]);
+  }
+  function activateSelected() {
+    const name = get(filesSel);
+    const e = entries.find((x) => x.name === name);
+    if (!e) return;
+    if (e.is_dir) enter(e);
+    else if (isImage(e.name)) openImageWindow(joinPath(e.name));
+    else if (isMd(e.name)) openMdWindow(joinPath(e.name));
+    else window.location.href = `${apiBase()}/api/file?path=${encodeURIComponent(joinPath(e.name))}`;
+  }
+  document.addEventListener("keydown", (e: KeyboardEvent) => {
+    if (!get(filesKbd) || !get(filesOpen)) return;
+    let handled = true;
+    const selEntry = entries.find((x) => x.name === get(filesSel));
+    if (e.key === "ArrowDown" || e.key === "j") moveSel(1);
+    else if (e.key === "ArrowUp" || e.key === "k") moveSel(-1);
+    else if (e.key === "ArrowLeft" || e.key === "h") up(); // back to parent dir
+    else if ((e.key === "ArrowRight" || e.key === "l") && selEntry?.is_dir) enter(selEntry); // into dir
+    else if (e.key === "Enter") activateSelected();
+    else handled = false;
+    if (handled) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+  }, true);
+
   let path = ""; // "" = gateway file root
   let entries: Entry[] = [];
+  $: filesRows.set(entries.map((e) => e.name)); // publish for keyboard nav
+  // Keyboard selection scrolls itself into view.
+  $: if ($filesKbd && $filesSel) {
+    tick().then(() => {
+      [...document.querySelectorAll("[data-row]")]
+        .find((el) => el.getAttribute("data-row") === $filesSel)
+        ?.scrollIntoView({ block: "nearest" });
+    });
+  }
   let loading = false;
   let errMsg = "";
 
@@ -326,7 +368,10 @@
       {/if}
       {#each entries as e (e.name)}
         <div
-          class="group flex w-full items-center gap-2 rounded-md px-1.5 py-1 text-sm hover:bg-slate-800"
+          data-row={e.name}
+          class="group flex w-full items-center gap-2 rounded-md px-1.5 py-1 text-sm hover:bg-slate-800 {$filesKbd && $filesSel === e.name
+            ? 'bg-blue-500/30 ring-1 ring-blue-400/60'
+            : ''}"
         >
           {#if e.is_dir}
             <button class="flex min-w-0 flex-1 items-center gap-2 text-left" on:click={() => enter(e)}>
