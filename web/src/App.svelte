@@ -56,10 +56,10 @@
         return;
       }
       const dir: "left" | "right" | "up" | "down" | null =
-        e.key === "ArrowLeft" ? "left"
-        : e.key === "ArrowRight" ? "right"
-        : e.key === "ArrowUp" ? "up"
-        : e.key === "ArrowDown" ? "down"
+        e.key === "ArrowLeft" || e.key === "h" ? "left"
+        : e.key === "ArrowRight" || e.key === "l" ? "right"
+        : e.key === "ArrowUp" || e.key === "k" ? "up"
+        : e.key === "ArrowDown" || e.key === "j" ? "down"
         : null;
       if (!dir) return;
       e.preventDefault();
