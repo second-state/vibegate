@@ -63,6 +63,7 @@ export function openMdWindow(path: string) {
 /** The canvas TouchZoom controller (set by Canvas on mount). */
 export const zoomController: Writable<{
   moveTo(pos: number[], zoom: number): Promise<void>;
+  jump(pos: number[], zoom: number): void;
   center: number[];
   zoom: number;
 } | null> = writable(null);

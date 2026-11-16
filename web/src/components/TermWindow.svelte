@@ -19,6 +19,7 @@ import { stopNative, nativePointerDown } from "../lib/actions";
   import { TERM_PRESETS } from "../lib/theme";
   import { t } from "../lib/i18n";
   import { statusColor } from "../lib/discovery";
+  import { copyTextToClipboard, showCopiedToast } from "../lib/session";
 
   export let prefix: string;
   export let zoom = 1;
@@ -95,11 +96,41 @@ import { stopNative, nativePointerDown } from "../lib/actions";
     termEl.addEventListener("touchmove", touchMove, { passive: false });
     termEl.addEventListener("touchend", touchEnd);
 
+    // Right-click: block the button-2 report to the app and open our menu.
+    const trackCell = (e: MouseEvent) => {
+      const scr = session?.term.element?.querySelector(".xterm-screen");
+      if (!scr || !session) return;
+      const b = scr.getBoundingClientRect();
+      const cw = session.term.cols ? b.width / session.term.cols : 0;
+      const ch = session.term.rows ? b.height / session.term.rows : 0;
+      lastCell = {
+        col: Math.min(session.term.cols - 1, Math.max(0, Math.floor((e.clientX - b.left) / cw))),
+        row: Math.min(session.term.rows - 1, Math.max(0, Math.floor((e.clientY - b.top) / ch))),
+      };
+    };
+    const rightDownBlock = (e: MouseEvent) => {
+      if (e.button !== 2) return;
+      e.preventDefault(); // no native menu
+      e.stopPropagation(); // app never sees the button-2 press
+    };
+    const ctxOpenAt = (e: MouseEvent) => {
+      if (e.button !== 2) return;
+      e.preventDefault();
+      openCtxMenu(e.clientX, e.clientY);
+    };
+    termEl.addEventListener("mousemove", trackCell);
+    termEl.addEventListener("mousedown", rightDownBlock, true);
+    termEl.addEventListener("contextmenu", ctxOpenAt);
+
     return () => {
       termEl.removeEventListener("keydown", guard);
       termEl.removeEventListener("touchstart", touchStart);
       termEl.removeEventListener("touchmove", touchMove);
       termEl.removeEventListener("touchend", touchEnd);
+      termEl.removeEventListener("mousemove", trackCell);
+      termEl.removeEventListener("mousedown", rightDownBlock, true);
+      termEl.removeEventListener("contextmenu", ctxOpenAt);
+      closeCtxMenu();
       unsubStatus();
       unsubSize();
       unregisterSession(prefix);
@@ -107,6 +138,56 @@ import { stopNative, nativePointerDown } from "../lib/actions";
       session = null;
     };
   });
+
+  // --- terminal context menu ---
+  let ctxMenu: { x: number; y: number } | null = null;
+  let lastCell: { col: number; row: number } | null = null;
+  const canReadClip = typeof navigator !== "undefined" && !!navigator.clipboard?.readText;
+
+  function openCtxMenu(x: number, y: number) {
+    ctxMenu = {
+      x: Math.min(x, window.innerWidth - 170),
+      y: Math.min(y, window.innerHeight - 160),
+    };
+    document.addEventListener("mousedown", closeCtxOnOutside, true);
+    document.addEventListener("keydown", closeCtxOnEsc, true);
+  }
+  function closeCtxMenu() {
+    ctxMenu = null;
+    document.removeEventListener("mousedown", closeCtxOnOutside, true);
+    document.removeEventListener("keydown", closeCtxOnEsc, true);
+  }
+  function closeCtxOnOutside(e: MouseEvent) {
+    const t = e.target as HTMLElement;
+    if (!t.closest("[data-ctx-menu]")) closeCtxMenu();
+  }
+  function closeCtxOnEsc(e: KeyboardEvent) {
+    if (e.key === "Escape") closeCtxMenu();
+  }
+  /** Render the menu at body level: fixed positioning inside the transformed
+   *  world container would be scaled/offset away from the cursor. */
+  function portalToBody(node: HTMLElement) {
+    document.body.appendChild(node);
+  }
+  async function ctxPaste() {
+    closeCtxMenu();
+    try {
+      const text = await navigator.clipboard.readText();
+      if (text) session?.sendRaw(text);
+    } catch (e) {
+      showCopiedToast(false, String(e));
+    }
+  }
+  function ctxSendRightClick() {
+    const c = lastCell ?? { col: 0, row: 0 };
+    // SGR mouse report: button 2 press (M) + release (m)
+    session?.sendRaw(`\x1b[<2;${c.col + 1};${c.row + 1}M\x1b[<2;${c.col + 1};${c.row + 1}m`);
+    closeCtxMenu();
+  }
+  function ctxToggleCanvasMode() {
+    canvasOnly.update((v) => !v);
+    closeCtxMenu();
+  }
 
   // --- header drag ---
   let drag: { px: number; py: number; x: number; y: number } | null = null;
@@ -298,5 +379,34 @@ import { stopNative, nativePointerDown } from "../lib/actions";
       on:pointerup={resizeUp}
       on:pointercancel={resizeUp}
     ></div>
+  </div>
+{/if}
+
+{#if ctxMenu}
+  <div
+    data-ctx-menu
+    use:portalToBody
+    class="fixed z-[60] min-w-[170px] overflow-hidden rounded-md border border-slate-700 bg-[#1f2233] py-1 shadow-2xl"
+    style:left="{ctxMenu.x}px"
+    style:top="{ctxMenu.y}px"
+  >
+    <button
+      class="block w-full px-3 py-1.5 text-left text-xs text-slate-200 hover:bg-slate-700"
+      on:mousedown|preventDefault={ctxPaste}
+    >
+      {$t("ctxPaste")}
+    </button>
+    <button
+      class="block w-full px-3 py-1.5 text-left text-xs text-slate-200 hover:bg-slate-700"
+      on:mousedown|preventDefault={ctxSendRightClick}
+    >
+      {$t("ctxSendRight")}
+    </button>
+    <button
+      class="block w-full px-3 py-1.5 text-left text-xs text-slate-200 hover:bg-slate-700"
+      on:mousedown|preventDefault={ctxToggleCanvasMode}
+    >
+      {$t("ctxToggleCanvas")}
+    </button>
   </div>
 {/if}

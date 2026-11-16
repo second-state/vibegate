@@ -120,6 +120,13 @@ export class TouchZoom {
     return () => this.#callbacks.delete(callback);
   }
 
+  /** Jump instantly to a position/zoom (no easing) — keyboard panning. */
+  jump(pos: number[], zoom: number) {
+    this.center = pos;
+    this.zoom = Vec.clamp(zoom, MIN_ZOOM, MAX_ZOOM);
+    this.#moved(false);
+  }
+
   async moveTo(pos: number[], zoom: number) {
     // Cubic bezier easing
     const smoothstep = (z: number) => {

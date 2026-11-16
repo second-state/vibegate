@@ -23,7 +23,7 @@ const SYNC_DEBOUNCE_MS = 200;
 export type SessionStatus = "connecting" | "live" | "ended" | "error";
 
 /** Small toast reporting the copy-on-selection outcome. */
-function showCopiedToast(ok: boolean, msg: string) {
+export function showCopiedToast(ok: boolean, msg: string) {
   const old = document.getElementById("vibegate-copied-toast");
   old?.remove();
   const el = document.createElement("div");
@@ -41,6 +41,24 @@ function showCopiedToast(ok: boolean, msg: string) {
     el.style.opacity = "0";
     setTimeout(() => el.remove(), 200);
   }, ok ? 1100 : 2600);
+}
+
+/** Copy text to the clipboard: async clipboard API with the legacy
+ *  execCommand fallback (insecure http contexts have no clipboard API). */
+export async function copyTextToClipboard(text: string): Promise<void> {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+  const ta = document.createElement("textarea");
+  ta.value = text;
+  ta.style.cssText = "position:fixed;top:0;left:0;opacity:0";
+  document.body.appendChild(ta);
+  ta.focus();
+  ta.select();
+  const ok = document.execCommand("copy");
+  ta.remove();
+  if (!ok) throw new Error("execCommand copy returned false");
 }
 
 export class TerminalSession {
@@ -87,30 +105,9 @@ export class TerminalSession {
     this.#copyOnMouseUp = () => {
       const sel = this.term.getSelection();
       if (!sel) return;
-      const legacyCopy = () => {
-        try {
-          const ta = document.createElement("textarea");
-          ta.value = sel;
-          ta.style.cssText = "position:fixed;top:0;left:0;opacity:0";
-          document.body.appendChild(ta);
-          ta.focus();
-          ta.select();
-          const ok = document.execCommand("copy");
-          ta.remove();
-          if (!ok) throw new Error("execCommand copy returned false");
-          showCopiedToast(true, "");
-        } catch (e) {
-          showCopiedToast(false, String(e));
-        }
-      };
-      if (navigator.clipboard?.writeText) {
-        navigator.clipboard
-          .writeText(sel)
-          .then(() => showCopiedToast(true, ""))
-          .catch(() => legacyCopy());
-      } else {
-        legacyCopy();
-      }
+      copyTextToClipboard(sel)
+        .then(() => showCopiedToast(true, ""))
+        .catch((e) => showCopiedToast(false, String(e)));
     };
     document.addEventListener("mouseup", this.#copyOnMouseUp);
     // Appearance (theme preset / terminal background image) applies live.

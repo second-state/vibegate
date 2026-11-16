@@ -65,6 +65,9 @@ const zh = {
   disconnectedHint: "连接已断开——点击遮罩任意位置重新连接",
   copiedToast: "已复制到剪贴板",
   copyFailed: "复制失败",
+  ctxPaste: "粘贴",
+  ctxSendRight: "发送右键",
+  ctxToggleCanvas: "切换画布模式",
   paneGoneHint: "远端面板已关闭,窗口即将移除…",
 
   // Keybar
@@ -163,6 +166,9 @@ const en: Record<MsgKey, string> = {
   disconnectedHint: "Disconnected — click anywhere on this overlay to reconnect",
   copiedToast: "Copied to clipboard",
   copyFailed: "Copy failed",
+  ctxPaste: "Paste",
+  ctxSendRight: "Send right-click",
+  ctxToggleCanvas: "Toggle canvas mode",
   paneGoneHint: "Remote pane closed — removing this window…",
 
   // Keybar
