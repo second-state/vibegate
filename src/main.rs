@@ -103,6 +103,11 @@ struct Cli {
     #[arg(long, global = true, env = "VIBEGATE_HERDR_SOCKET")]
     herdr_socket: Option<PathBuf>,
 
+    /// run: bind address to listen on; stop/status: gateway to talk to
+    /// (0.0.0.0 dials loopback).
+    #[arg(long, global = true, env = "VIBEGATE_BIND", default_value = "127.0.0.1:8480")]
+    bind: String,
+
     #[command(subcommand)]
     command: Commands,
 }
@@ -121,9 +126,6 @@ enum Commands {
         /// Spawn a detached daemon and return immediately.
         #[arg(short = 'd', long = "detach")]
         detach: bool,
-        /// Bind address for HTTP/WS.
-        #[arg(long, env = "VIBEGATE_BIND", default_value = "127.0.0.1:8480")]
-        bind: String,
         /// Directory of the built web frontend to serve at `/` (debug builds
         /// only — release builds embed the assets).
         #[arg(long)]
@@ -134,19 +136,11 @@ enum Commands {
         file_roots: Vec<PathBuf>,
     },
     /// Stop a running gateway (loopback only — see /api/shutdown).
-    Stop {
-        /// Base URL of the running gateway.
-        #[arg(long, default_value = "http://127.0.0.1:8480")]
-        bind: String,
-    },
+    Stop,
     /// Fullscreen status dashboard for the herdr plugin pane.
     Tui,
     /// Show whether a gateway is running and which version.
-    Status {
-        /// Base URL of the running gateway.
-        #[arg(long, default_value = "http://127.0.0.1:8480")]
-        bind: String,
-    },
+    Status,
     /// Self-update from GitHub Releases (installs like install.sh).
     Update {
         /// Release tag to install (default: latest stable).
@@ -182,15 +176,15 @@ async fn main() -> Result<()> {
             }
             Ok(())
         }
-        Commands::Run { detach, bind, web_dir, file_roots } => {
+        Commands::Run { detach, web_dir, file_roots } => {
             if detach {
-                spawn_detached(&bind, web_dir.as_ref(), &file_roots, herdr_socket.as_deref()).await
+                spawn_detached(&cli.bind, web_dir.as_ref(), &file_roots, herdr_socket.as_deref()).await
             } else {
-                run(herdr, bind, web_dir, file_roots).await
+                run(herdr, cli.bind.clone(), web_dir, file_roots).await
             }
         }
-        Commands::Stop { bind } => stop_gateway(&bind).await,
-        Commands::Status { bind } => status_gateway(&bind).await,
+        Commands::Stop => stop_gateway(&loopback_base(&cli.bind)).await,
+        Commands::Status => status_gateway(&loopback_base(&cli.bind)).await,
         Commands::Tui => tui::run().await,
         Commands::Update { tag } => {
             update::run(Some(tag)).await.map_err(anyhow::Error::msg)
@@ -257,7 +251,7 @@ async fn spawn_detached(
     file_roots: &[PathBuf],
     herdr_socket: Option<&std::path::Path>,
 ) -> Result<()> {
-    let base = format!("http://{bind}");
+    let base = loopback_base(bind);
     if let Ok(buf) = raw_http(&base, "GET /api/status HTTP/1.1\r\n").await {
         let body = buf.split("\r\n\r\n").nth(1).unwrap_or("");
         let json = body
@@ -311,6 +305,15 @@ async fn spawn_detached(
     cmd.spawn().context("spawn detached daemon")?;
     println!("vibegate started in background on {bind} (log: {})", log_path.display());
     Ok(())
+}
+
+/// Client-side base URL for a bind address: 0.0.0.0 means "listen on all
+/// interfaces", so dial loopback instead of 0.0.0.0.
+fn loopback_base(bind: &str) -> String {
+    let bare = bind.trim_start_matches("http://").trim_start_matches("https://");
+    let (host, port) = bare.rsplit_once(':').unwrap_or((bare, "80"));
+    let host = if host.is_empty() || host == "0.0.0.0" { "127.0.0.1" } else { host };
+    format!("http://{host}:{port}")
 }
 
 /// Raw minimal HTTP — one control call doesn't justify a client crate.

@@ -1,7 +1,7 @@
 //! `vibegate herdr-tui` — fullscreen gateway dashboard for the herdr plugin
 //! pane: ratatui-kit runtime (state/events) + plain ratatui rendering.
 
-use crate::raw_http;
+use crate::{loopback_base, raw_http};
 use ratatui_kit::prelude::*;
 use ratatui_kit::{
     crossterm::event::{Event, KeyCode, KeyEventKind},
@@ -26,10 +26,14 @@ fn start_daemon(addr: String, log: String) {
     if let Ok(exe) = std::env::current_exe() {
         let _ = std::thread::spawn(move || {
             use std::os::unix::process::CommandExt;
+            // Stdio::null for stdout/stderr: `run -d` prints "started in
+            // background" and would spray it over the fullscreen TUI.
             let _ = std::process::Command::new(exe)
                 .args(["run", "-d", "--bind", &addr])
                 .env("VIBEGATE_LOG_FILE", log)
                 .stdin(std::process::Stdio::null())
+                .stdout(std::process::Stdio::null())
+                .stderr(std::process::Stdio::null())
                 .process_group(0)
                 .status();
         });
@@ -141,7 +145,9 @@ fn HerdrTui(mut hooks: Hooks) -> impl Into<AnyElement<'static>> {
     let mut selected = hooks.use_state(|| 0_usize);
 
     // Probe the gateway once a second; writes wake the render loop.
-    let probe_bind = bind.clone();
+    // loopback_base maps a 0.0.0.0 listen address to 127.0.0.1 — the probe
+    // is a client connection and must not dial 0.0.0.0.
+    let probe_bind = loopback_base(&bind);
     hooks.use_future(async move {
         loop {
             let line = match raw_http(&probe_bind, "GET /api/status HTTP/1.1\r\n").await {
@@ -170,7 +176,7 @@ fn HerdrTui(mut hooks: Hooks) -> impl Into<AnyElement<'static>> {
     let mut exit = hooks.use_exit();
     // ←/→ + Enter drive the buttons; s / x / q stay as direct shortcuts.
     let ev_addr = addr.clone();
-    let ev_bind = bind.clone();
+    let ev_bind = loopback_base(&bind);
     let ev_log = log.clone();
     hooks.use_event_handler(EventScope::Current, EventPriority::Normal, move |event| {
         let Event::Key(key) = event else {
