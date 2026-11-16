@@ -6,21 +6,55 @@
   import SessionDrawer from "./components/SessionDrawer.svelte";
   import FileDrawer from "./components/FileDrawer.svelte";
   import Keybar from "./components/Keybar.svelte";
-  import { canvasOnly, zoomController, windows, focusPrefix, ANCHOR_X, ANCHOR_Y } from "./lib/canvas";
+  import { canvasOnly, zoomController, windows, focusPrefix, ANCHOR_X, ANCHOR_Y, getSession } from "./lib/canvas";
 
   // Two-finger TAP anywhere toggles canvas mode: quick (≤350ms) and still
   // (≤12px per finger). A pinch moves — it cancels the tap instead of
   // flipping the mode.
   //
   // In canvas mode the arrow keys focus the nearest window in that direction
-  // (falling back to panning when no neighbor exists).
+  // (falling back to centering the focused window when no neighbor exists).
   onMount(() => {
     let down: { t: number; pts: Map<number, number[]> } | null = null;
     const MAX_MS = 350;
     const MAX_MOVE = 12;
 
+    /** Exiting canvas mode: give browser focus back to the terminal that was
+     *  focused before, so typing works immediately. */
+    function refocusFocusedTerm() {
+      const prefix = get(focusPrefix);
+      const s = prefix ? getSession(prefix) : undefined;
+      setTimeout(() => s?.term.textarea?.focus(), 0);
+    }
+    function toggleCanvasMode() {
+      canvasOnly.update((v) => !v);
+      if (get(canvasOnly)) {
+        // entering: focus the canvas fabric itself — it "wakes" to receive
+        // keys (arrows pan) and the terminal textarea releases focus
+        (document.querySelector("[data-canvas-fabric]") as HTMLElement | null)?.focus();
+      } else {
+        refocusFocusedTerm();
+      }
+    }
+
     const onPanKey = (e: KeyboardEvent) => {
+      // Ctrl+B anywhere toggles canvas mode.
+      if (
+        e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey &&
+        (e.key === "b" || e.key === "B")
+      ) {
+        e.preventDefault(); // don't leak ^B into the focused terminal
+        toggleCanvasMode();
+        return;
+      }
       if (!get(canvasOnly)) return;
+      // Enter in canvas mode → back to normal (terminals operable again).
+      if (e.key === "Enter") {
+        e.preventDefault();
+        canvasOnly.set(false);
+        refocusFocusedTerm();
+        return;
+      }
       const dir: "left" | "right" | "up" | "down" | null =
         e.key === "ArrowLeft" ? "left"
         : e.key === "ArrowRight" ? "right"
@@ -104,8 +138,8 @@
       const tapped = Date.now() - down.t < MAX_MS;
       down = null;
       if (tapped) {
-        canvasOnly.update((v) => !v);
         e.preventDefault(); // suppress the synthetic click on whatever was tapped
+        toggleCanvasMode();
       }
     };
     document.addEventListener("touchstart", start, { capture: true, passive: false });

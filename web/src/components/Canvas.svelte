@@ -37,6 +37,7 @@
 
   onMount(() => {
     touchZoom = new TouchZoom(fabric);
+    fabric.tabIndex = -1; // focusable: entering canvas mode focuses it
     zoomController.set(touchZoom);
     // Middle-click on empty canvas toggles canvas mode (desktop shortcut).
     // Only when the hit element is the fabric itself AND the point is not
@@ -98,6 +99,7 @@
 <div
   bind:this={fabric}
   class="absolute inset-0 touch-none overflow-hidden bg-[#16161e]"
+  data-canvas-fabric
   role="presentation"
   on:dblclick={fitFocused}
 >
