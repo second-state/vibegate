@@ -63,6 +63,8 @@ const zh = {
   closeWindow: "关闭窗口(不影响远端会话)",
   gridSize: "终端大小(列×行)",
   disconnectedHint: "连接已断开——点击遮罩任意位置重新连接",
+  copiedToast: "已复制到剪贴板",
+  copyFailed: "复制失败",
   paneGoneHint: "远端面板已关闭,窗口即将移除…",
 
   // Keybar
@@ -159,6 +161,8 @@ const en: Record<MsgKey, string> = {
   closeWindow: "Close window (remote session keeps running)",
   gridSize: "Terminal size (cols×rows)",
   disconnectedHint: "Disconnected — click anywhere on this overlay to reconnect",
+  copiedToast: "Copied to clipboard",
+  copyFailed: "Copy failed",
   paneGoneHint: "Remote pane closed — removing this window…",
 
   // Keybar

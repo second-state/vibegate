@@ -16,10 +16,32 @@ import { get, writable, type Writable } from "svelte/store";
 import { TERM_FONT_FAMILY, TERM_FONT_SIZE, TERM_PRESETS } from "./theme";
 import { appearance, getAppearance, resolveBgUrl } from "./appearance";
 import { stickyMods, clearMods, applyModsToTyped } from "./mods";
+import { t } from "./i18n";
 
 const SYNC_DEBOUNCE_MS = 200;
 
 export type SessionStatus = "connecting" | "live" | "ended" | "error";
+
+/** Small toast reporting the copy-on-selection outcome. */
+function showCopiedToast(ok: boolean, msg: string) {
+  const old = document.getElementById("vibegate-copied-toast");
+  old?.remove();
+  const el = document.createElement("div");
+  el.id = "vibegate-copied-toast";
+  el.textContent = ok ? get(t)("copiedToast") : `${get(t)("copyFailed")}: ${msg}`;
+  el.style.cssText =
+    "position:fixed;top:18px;left:50%;transform:translateX(-50%);z-index:9999;" +
+    `background:${ok ? "#1f2233" : "#7f1d1d"};color:${ok ? "#cbd5e1" : "#fecaca"};` +
+    "border:1px solid #334155;border-radius:8px;" +
+    "padding:6px 14px;font-size:12px;box-shadow:0 6px 24px rgba(0,0,0,.45);" +
+    "opacity:0;transition:opacity .15s";
+  document.body.appendChild(el);
+  requestAnimationFrame(() => (el.style.opacity = "1"));
+  setTimeout(() => {
+    el.style.opacity = "0";
+    setTimeout(() => el.remove(), 200);
+  }, ok ? 1100 : 2600);
+}
 
 export class TerminalSession {
   readonly prefix: string; // kept for compatibility: the herdr terminal id
@@ -34,6 +56,8 @@ export class TerminalSession {
   private ws: WebSocket | null = null;
   private gatewayUrl: string;
   private attached = false;
+  /** Mouseup listener for copy-on-selection; removed in close(). */
+  #copyOnMouseUp: () => void = () => {};
   private cols = 80;
   private rows = 24;
   private syncTimer: ReturnType<typeof setTimeout> | null = null;
@@ -55,6 +79,40 @@ export class TerminalSession {
       allowProposedApi: true,
       scrollback: 2000,
     });
+    // Shift+drag select → clipboard once on mouse release (xterm core has no
+    // copy-on-selection option), with a small toast reporting the outcome.
+    // navigator.clipboard only exists in secure contexts (https/localhost);
+    // on http:// LAN access, fall back to the legacy execCommand path, which
+    // works inside a user gesture.
+    this.#copyOnMouseUp = () => {
+      const sel = this.term.getSelection();
+      if (!sel) return;
+      const legacyCopy = () => {
+        try {
+          const ta = document.createElement("textarea");
+          ta.value = sel;
+          ta.style.cssText = "position:fixed;top:0;left:0;opacity:0";
+          document.body.appendChild(ta);
+          ta.focus();
+          ta.select();
+          const ok = document.execCommand("copy");
+          ta.remove();
+          if (!ok) throw new Error("execCommand copy returned false");
+          showCopiedToast(true, "");
+        } catch (e) {
+          showCopiedToast(false, String(e));
+        }
+      };
+      if (navigator.clipboard?.writeText) {
+        navigator.clipboard
+          .writeText(sel)
+          .then(() => showCopiedToast(true, ""))
+          .catch(() => legacyCopy());
+      } else {
+        legacyCopy();
+      }
+    };
+    document.addEventListener("mouseup", this.#copyOnMouseUp);
     // Appearance (theme preset / terminal background image) applies live.
     appearance.subscribe(() => this.#applyAppearance());
     this.fitAddon = new FitAddon();
@@ -178,6 +236,7 @@ export class TerminalSession {
   /** Tear down: close the socket (the gateway kills its attach). */
   close() {
     if (this.syncTimer) clearTimeout(this.syncTimer);
+    document.removeEventListener("mouseup", this.#copyOnMouseUp);
     if (this.ws) {
       this.ws.onclose = null;
       this.ws.close();
