@@ -6,7 +6,7 @@
   import SessionDrawer from "./components/SessionDrawer.svelte";
   import FileDrawer from "./components/FileDrawer.svelte";
   import Keybar from "./components/Keybar.svelte";
-  import { canvasOnly, zoomController, windows, focusPrefix } from "./lib/canvas";
+  import { canvasOnly, zoomController, windows, focusPrefix, ANCHOR_X, ANCHOR_Y } from "./lib/canvas";
 
   // Two-finger TAP anywhere toggles canvas mode: quick (≤350ms) and still
   // (≤12px per finger). A pinch moves — it cancels the tap instead of
@@ -59,14 +59,22 @@
       if (bestKey) {
         focusPrefix.set(bestKey);
         // center the newly focused window so focus is always visible
+        // (moveTo pos = window center minus the anchor offset, same as
+        // double-click-to-center on the canvas)
         const nb = wins.get(bestKey)!;
         const zt = get(zoomController);
-        zt?.moveTo([nb.x + nb.w / 2, nb.y + nb.h / 2], zt.zoom);
+        zt?.moveTo(
+          [nb.x + nb.w / 2 - ANCHOR_X / zt.zoom, nb.y + nb.h / 2 - ANCHOR_Y / zt.zoom],
+          zt.zoom,
+        );
         return;
       }
       // no neighbor in that direction: center the focused window
       const zt = get(zoomController);
-      zt?.moveTo([ccx, ccy], zt.zoom);
+      zt?.moveTo(
+        [ccx - ANCHOR_X / zt.zoom, ccy - ANCHOR_Y / zt.zoom],
+        zt.zoom,
+      );
     };
     document.addEventListener("keydown", onPanKey, { capture: true });
 
