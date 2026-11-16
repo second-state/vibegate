@@ -142,7 +142,7 @@ import { stopNative, nativePointerDown } from "../lib/actions";
   // --- terminal context menu ---
   let ctxMenu: { x: number; y: number } | null = null;
   let lastCell: { col: number; row: number } | null = null;
-  const canReadClip = typeof navigator !== "undefined" && !!navigator.clipboard?.readText;
+  const canPaste = typeof navigator !== "undefined" && !!navigator.clipboard;
 
   function openCtxMenu(x: number, y: number) {
     ctxMenu = {
@@ -390,12 +390,14 @@ import { stopNative, nativePointerDown } from "../lib/actions";
     style:left="{ctxMenu.x}px"
     style:top="{ctxMenu.y}px"
   >
-    <button
-      class="block w-full px-3 py-1.5 text-left text-xs text-slate-200 hover:bg-slate-700"
-      on:mousedown|preventDefault={ctxPaste}
-    >
-      {$t("ctxPaste")}
-    </button>
+    {#if canPaste}
+      <button
+        class="block w-full px-3 py-1.5 text-left text-xs text-slate-200 hover:bg-slate-700"
+        on:mousedown|preventDefault={ctxPaste}
+      >
+        {$t("ctxPaste")}
+      </button>
+    {/if}
     <button
       class="block w-full px-3 py-1.5 text-left text-xs text-slate-200 hover:bg-slate-700"
       on:mousedown|preventDefault={ctxSendRightClick}
