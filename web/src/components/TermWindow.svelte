@@ -197,7 +197,15 @@ import { stopNative, nativePointerDown } from "../lib/actions";
     style:top="{rect.y}px"
     style:width="{rect.w}px"
     style:height="{rect.h}px"
-    use:nativePointerDown={() => focusPrefix.set(prefix)}
+    use:nativePointerDown={() => {
+      focusPrefix.set(prefix);
+      // The mousedown default action (running after all handlers) clears
+      // focus to <body> — xterm preventDefaults its own events, but our
+      // root listener sees the event too late for that to matter here.
+      // Re-focus the helper textarea after the default action, so the
+      // FIRST click enables keyboard input.
+      setTimeout(() => session?.term.textarea?.focus(), 0);
+    }}
     use:stopNative={["dblclick"]}
     role="presentation"
     data-focused-window={focused ? "1" : undefined}
