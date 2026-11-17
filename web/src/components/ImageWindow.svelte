@@ -10,6 +10,7 @@
   import { connection } from "../lib/connection";
   import { setAppearance } from "../lib/appearance";
   import { t } from "../lib/i18n";
+  import { copyTextToClipboard, showCopiedToast } from "../lib/session";
 
   export let path: string; // full file path (without the "img:" key prefix)
   export let zoom = 1;
@@ -75,6 +76,18 @@
       <span class="min-w-0 flex-1 truncate text-xs font-medium text-slate-300" title={path}>
         {name}
       </span>
+      <button
+        class="shrink-0 rounded px-1 text-[10px] text-slate-500 hover:bg-slate-700 hover:text-slate-200"
+        title={$t("copyPath")}
+        use:stopNative={["pointerdown"]}
+        on:mousedown={(e) =>
+          e.button === 0 &&
+          copyTextToClipboard(path)
+            .then(() => showCopiedToast(true, ""))
+            .catch((er) => showCopiedToast(false, String(er)))}
+      >
+        ⧉
+      </button>
       <button
         class="shrink-0 rounded px-1 text-[10px] text-slate-500 hover:bg-slate-700 hover:text-slate-200"
         title={$t("setCanvasBg")}

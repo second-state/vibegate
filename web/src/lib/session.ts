@@ -22,13 +22,13 @@ const SYNC_DEBOUNCE_MS = 200;
 
 export type SessionStatus = "connecting" | "live" | "ended" | "error";
 
-/** Small toast reporting the copy-on-selection outcome. */
-export function showCopiedToast(ok: boolean, msg: string) {
+/** Small transient toast at the top of the screen. */
+export function showToast(text: string, ok = true) {
   const old = document.getElementById("vibegate-copied-toast");
   old?.remove();
   const el = document.createElement("div");
   el.id = "vibegate-copied-toast";
-  el.textContent = ok ? get(t)("copiedToast") : `${get(t)("copyFailed")}: ${msg}`;
+  el.textContent = text;
   el.style.cssText =
     "position:fixed;top:18px;left:50%;transform:translateX(-50%);z-index:9999;" +
     `background:${ok ? "#1f2233" : "#7f1d1d"};color:${ok ? "#cbd5e1" : "#fecaca"};` +
@@ -41,6 +41,11 @@ export function showCopiedToast(ok: boolean, msg: string) {
     el.style.opacity = "0";
     setTimeout(() => el.remove(), 200);
   }, ok ? 1100 : 2600);
+}
+
+/** Small toast reporting the copy-on-selection outcome. */
+export function showCopiedToast(ok: boolean, msg: string) {
+  showToast(ok ? get(t)("copiedToast") : `${get(t)("copyFailed")}: ${msg}`, ok);
 }
 
 /** Copy text to the clipboard: async clipboard API with the legacy

@@ -21,7 +21,12 @@
     openWindow,
     filesKbd,
     filesOpen,
+    filesDir,
+    openImageWindow,
   } from "./lib/canvas";
+  import { connection } from "./lib/connection";
+  import { showToast } from "./lib/session";
+  import { t } from "./lib/i18n";
 
   // Two-finger TAP anywhere toggles canvas mode: quick (≤350ms) and still
   // (≤12px per finger). A pinch moves — it cancels the tap instead of
@@ -234,11 +239,45 @@
     document.addEventListener("touchmove", move, { capture: true });
     document.addEventListener("touchend", end, { capture: true, passive: false });
     document.addEventListener("touchcancel", () => (down = null), { capture: true });
+
+    // Pasted images go to the file drawer's current dir and open on the
+    // canvas. Text pastes are left alone — terminals handle those.
+    const onPaste = (e: ClipboardEvent) => {
+      const imgItem = [...(e.clipboardData?.items ?? [])].find((i) =>
+        i.type.startsWith("image/"),
+      );
+      if (!imgItem) return; // text or nothing: not ours
+      e.preventDefault();
+      const file = imgItem.getAsFile();
+      if (!file) return;
+      const ext = imgItem.type.split("/")[1]?.replace("jpeg", "jpg") || "png";
+      const d = new Date();
+      const p2 = (n: number) => String(n).padStart(2, "0");
+      const name = `paste-${d.getFullYear()}${p2(d.getMonth() + 1)}${p2(d.getDate())}-${p2(d.getHours())}${p2(d.getMinutes())}${p2(d.getSeconds())}.${ext}`;
+      const dir = get(filesDir);
+      const target = dir ? (dir.endsWith("/") ? dir + name : `${dir}/${name}`) : name;
+      fetch(`${connection.apiBase}/api/file?path=${encodeURIComponent(target)}`, {
+        method: "PUT",
+        body: file,
+      })
+        .then(async (r) => {
+          const body = await r.json();
+          if (!r.ok) throw new Error(body?.error || `HTTP ${r.status}`);
+          // The gateway echoes the resolved ABSOLUTE path — use it so the
+          // image window (and its copy-path button) shows the real location.
+          const abs = typeof body?.path === "string" && body.path ? body.path : target;
+          showToast(get(t)("pasteToast", { p: abs }));
+          openImageWindow(abs);
+        })
+        .catch((err) => showToast(String(err), false));
+    };
+    document.addEventListener("paste", onPaste);
     return () => {
       document.removeEventListener("keydown", onPanKey, { capture: true });
       document.removeEventListener("touchstart", start, { capture: true });
       document.removeEventListener("touchmove", move, { capture: true });
       document.removeEventListener("touchend", end, { capture: true });
+      document.removeEventListener("paste", onPaste);
     };
   });
 </script>

@@ -9,6 +9,7 @@
     moveWindow,
     closeWindow,
     canvasOnly,
+    filesNavigate,
     MIN_W,
     MIN_H,
   } from "../lib/canvas";
@@ -169,6 +170,12 @@ import { stopNative, nativePointerDown } from "../lib/actions";
   function portalToBody(node: HTMLElement) {
     document.body.appendChild(node);
   }
+  /** Open the file drawer at this terminal's working directory. */
+  function ctxOpenWorkdir() {
+    closeCtxMenu();
+    filesNavigate.set(instance?.cwd || "");
+  }
+
   async function ctxPaste() {
     closeCtxMenu();
     try {
@@ -398,6 +405,13 @@ import { stopNative, nativePointerDown } from "../lib/actions";
         {$t("ctxPaste")}
       </button>
     {/if}
+    <button
+      class="block w-full px-3 py-1.5 text-left text-xs text-slate-200 hover:bg-slate-700"
+      title={instance?.cwd || ""}
+      on:mousedown|preventDefault={ctxOpenWorkdir}
+    >
+      {$t("ctxOpenWorkdir")}
+    </button>
     <button
       class="block w-full px-3 py-1.5 text-left text-xs text-slate-200 hover:bg-slate-700"
       on:mousedown|preventDefault={ctxSendRightClick}

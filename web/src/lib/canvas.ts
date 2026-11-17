@@ -46,6 +46,13 @@ export const canvasOnly: Writable<boolean> = writable(false);
 export const IMAGE_KEY_PREFIX = "img:";
 export const MD_KEY_PREFIX = "md:";
 
+/** The file drawer's current directory — pasted images land here. */
+export const filesDir: Writable<string> = writable("");
+
+/** Set to a path to open the file drawer there (e.g. a terminal's cwd);
+ *  the drawer consumes it and resets to null. */
+export const filesNavigate: Writable<string | null> = writable(null);
+
 /** Open a viewer window (image or markdown) for a file path, reusing an
  *  existing window for the same path. */
 function openFileWindow(prefix: string, w: number, h: number) {

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { filesOpen, drawerOpen, openImageWindow, openMdWindow, filesKbd, filesSel, filesRows } from "../lib/canvas";
+  import { filesOpen, drawerOpen, openImageWindow, openMdWindow, filesKbd, filesSel, filesRows, filesDir, filesNavigate } from "../lib/canvas";
   import { connection } from "../lib/connection";
   import { get } from "svelte/store";
   import { tick } from "svelte";
@@ -52,6 +52,7 @@
   let path = ""; // "" = gateway file root
   let entries: Entry[] = [];
   $: filesRows.set(entries.map((e) => e.name)); // publish for keyboard nav
+  $: filesDir.set(path); // pasted images land in the current dir
   // Keyboard selection scrolls itself into view.
   $: if ($filesKbd && $filesSel) {
     tick().then(() => {
@@ -108,6 +109,17 @@
     booted = true;
     load(path);
   }
+
+  // External navigation (e.g. a terminal's right-click "open workdir"):
+  // open the drawer and jump to the requested path. Mark booted so the
+  // first-open load doesn't race this one with the stale path.
+  filesNavigate.subscribe((p) => {
+    if (p === null) return;
+    booted = true;
+    filesOpen.set(true);
+    load(p);
+    filesNavigate.set(null);
+  });
 
   const enter = (e: Entry) => {
     if (!e.is_dir) return;
