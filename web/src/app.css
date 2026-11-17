@@ -10,11 +10,17 @@ body {
   -webkit-text-size-adjust: 100%;
 }
 
-/* xterm viewport should not intercept canvas gestures */
+/* xterm viewport should not intercept canvas gestures.
+   Hide the scrollbar entirely: it reserved a whole column on the right
+   (FitAddon subtracts its width), while being visually invisible anyway
+   (transparent track, thumb ≈ terminal background). Wheel/PgUp scrolling
+   works without it. */
 .xterm .xterm-viewport {
   background-color: transparent !important;
-  scrollbar-width: thin;
-  scrollbar-color: #2f334d transparent;
+  scrollbar-width: none;
+}
+.xterm .xterm-viewport::-webkit-scrollbar {
+  display: none;
 }
 
 /* Thin scrollbars for panels */

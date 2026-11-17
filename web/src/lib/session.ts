@@ -138,6 +138,13 @@ export class TerminalSession {
     } catch {
       /* fall back to xterm's default width tables */
     }
+    // FitAddon subtracts the viewport scrollbar width from the available
+    // columns. xterm measures it as `offsetWidth − innerWidth || 15`, so a
+    // CSS-hidden scrollbar (app.css) still yields the 15px fallback and
+    // eats a column. The bar is gone visually — force the reserved width
+    // to 0 as well, or the last column stays background-only.
+    const core = (this.term as any)._core;
+    if (core?.viewport) core.viewport.scrollBarWidth = 0;
     this.fit();
     this.#open();
   }
