@@ -3,6 +3,7 @@ import "./app.css";
 import "@xterm/xterm/css/xterm.css";
 import App from "./App.svelte";
 import { connection } from "./lib/connection";
+import "./lib/tabAlert";
 import {
   sessions,
   windows,
