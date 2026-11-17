@@ -297,11 +297,12 @@ import { stopNative, nativePointerDown } from "../lib/actions";
     use:stopNative={["dblclick"]}
     role="presentation"
     data-focused-window={focused ? "1" : undefined}
+    data-chrome={$appearance.chrome}
     data-window="1"
   >
     <!-- Header / drag handle -->
     <div
-      class="pointer-events-auto flex h-8 shrink-0 cursor-grab select-none items-center gap-2 border-b border-slate-800 bg-[#1f2233] px-2 active:cursor-grabbing"
+      class="win-head pointer-events-auto flex h-8 shrink-0 cursor-grab select-none items-center gap-2 border-b border-slate-800 bg-[#1f2233] px-2 active:cursor-grabbing"
       role="presentation"
       use:nativePointerDown={headerDown}
       on:pointermove={headerMove}
@@ -319,6 +320,8 @@ import { stopNative, nativePointerDown } from "../lib/actions";
         </button>
       {/if}
       <span
+        data-status-dot
+        data-status={state || "shell"}
         class="h-2 w-2 shrink-0 rounded-full {statusColor(state)}"
         title={state || 'shell'}
       ></span>

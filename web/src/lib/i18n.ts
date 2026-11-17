@@ -55,6 +55,10 @@ const zh = {
   keybarFloat: "悬浮",
   keybarTop: "置顶",
   keybarHidden: "隐藏",
+  chromeLabel: "窗口风格",
+  chromeClassic: "经典",
+  chromeGlass: "玻璃",
+  chromeCyber: "赛博",
   language: "语言",
   appearanceNote: "相对路径走网关文件 API;图片窗口标题栏也有「画布」「终端」快捷设置按钮。",
 
@@ -158,6 +162,10 @@ const en: Record<MsgKey, string> = {
   keybarFloat: "Float",
   keybarTop: "Top",
   keybarHidden: "Hidden",
+  chromeLabel: "Window chrome",
+  chromeClassic: "Classic",
+  chromeGlass: "Glass",
+  chromeCyber: "Cyber",
   language: "Language",
   appearanceNote:
     "Relative paths go through the gateway file API; image windows also have canvas/terminal quick buttons.",

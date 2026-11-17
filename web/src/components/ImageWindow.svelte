@@ -8,7 +8,7 @@
   } from "../lib/canvas";
   import { nativePointerDown, stopNative } from "../lib/actions";
   import { connection } from "../lib/connection";
-  import { setAppearance } from "../lib/appearance";
+  import { setAppearance, appearance } from "../lib/appearance";
   import { t } from "../lib/i18n";
   import { copyTextToClipboard, showCopiedToast } from "../lib/session";
 
@@ -62,10 +62,12 @@
     use:nativePointerDown={() => focusPrefix.set(key())}
     use:stopNative={["dblclick"]}
     role="presentation"
+    data-focused-window={focused ? "1" : undefined}
+    data-chrome={$appearance.chrome}
     data-window="1"
   >
     <div
-      class="pointer-events-auto flex h-8 shrink-0 cursor-grab select-none items-center gap-2 border-b border-slate-800 bg-[#1f2233] px-2 active:cursor-grabbing"
+      class="win-head pointer-events-auto flex h-8 shrink-0 cursor-grab select-none items-center gap-2 border-b border-slate-800 bg-[#1f2233] px-2 active:cursor-grabbing"
       role="presentation"
       use:nativePointerDown={headerDown}
       on:pointermove={headerMove}

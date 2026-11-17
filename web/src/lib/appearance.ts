@@ -17,6 +17,8 @@ export type Appearance = {
   termBgOpacity: number;
   /** Keybar placement: float under the focused window, docked on top, hidden. */
   keybar: "float" | "top" | "hidden";
+  /** Window chrome style: classic / glass / cyber. */
+  chrome: "classic" | "glass" | "cyber";
 };
 
 const DEFAULTS: Appearance = {
@@ -25,13 +27,19 @@ const DEFAULTS: Appearance = {
   termBg: "",
   termBgOpacity: 100,
   keybar: "float",
+  chrome: "classic",
 };
 const KEY = "vibeview.appearance";
 
 function load(): Appearance {
   try {
     const raw = localStorage.getItem(KEY);
-    if (raw) return { ...DEFAULTS, ...JSON.parse(raw) };
+    if (raw) {
+      const a = { ...DEFAULTS, ...JSON.parse(raw) } as Appearance;
+      // sanitize removed styles (e.g. "hud") back to the default
+      if (!["classic", "glass", "cyber"].includes(a.chrome)) a.chrome = "classic";
+      return a;
+    }
   } catch {
     /* private mode / bad json */
   }

@@ -19,6 +19,14 @@
     { val: "top", label: "keybarTop" },
     { val: "hidden", label: "keybarHidden" },
   ];
+  const CHROME_MODES: {
+    val: Appearance["chrome"];
+    label: "chromeClassic" | "chromeGlass" | "chromeCyber";
+  }[] = [
+    { val: "classic", label: "chromeClassic" },
+    { val: "glass", label: "chromeGlass" },
+    { val: "cyber", label: "chromeCyber" },
+  ];
   const LANGS: { val: Lang; label: string }[] = [
     { val: "zh", label: "中文" },
     { val: "en", label: "English" },
@@ -266,6 +274,21 @@
                     ? 'bg-blue-600 text-white'
                     : 'bg-slate-900 text-slate-300 hover:bg-slate-800'}"
                   on:click={() => appearance.set({ ...$appearance, keybar: m.val })}
+                >
+                  {$t(m.label)}
+                </button>
+              {/each}
+            </div>
+          </div>
+          <div class="text-xs text-slate-400">
+            <div class="mb-1">{$t("chromeLabel")}</div>
+            <div class="flex overflow-hidden rounded-md border border-slate-700">
+              {#each CHROME_MODES as m (m.val)}
+                <button
+                  class="flex-1 py-1 text-xs {$appearance.chrome === m.val
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-slate-900 text-slate-300 hover:bg-slate-800'}"
+                  on:click={() => appearance.set({ ...$appearance, chrome: m.val })}
                 >
                   {$t(m.label)}
                 </button>
