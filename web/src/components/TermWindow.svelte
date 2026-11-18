@@ -10,6 +10,7 @@
     closeWindow,
     canvasOnly,
     filesNavigate,
+    restoredKeys,
     MIN_W,
     MIN_H,
   } from "../lib/canvas";
@@ -38,12 +39,15 @@ import { stopNative, nativePointerDown } from "../lib/actions";
   const connState = connection.state;
 
   // Pane gone from herdr (judged only while the gateway is connected, so a
-  // blip cannot wipe windows) → remove the window from the canvas.
+  // blip cannot wipe windows) → remove the window from the canvas. Restored
+  // windows are exempt: at startup "ended" + pane list not yet received is
+  // the normal pre-reconnect state, not a dead pane.
   $: if (
     (status === "ended" || status === "error") &&
     $connState === "connected" &&
     rect &&
-    !instance
+    !instance &&
+    !restoredKeys.has(prefix)
   ) {
     closeWindow(prefix);
   }
@@ -61,9 +65,14 @@ import { stopNative, nativePointerDown } from "../lib/actions";
   onMount(() => {
     session = new TerminalSession(prefix, connection.urlValue);
     registerSession(prefix, session);
-    const unsubStatus = session.status.subscribe((s) => (status = s));
+    const unsubStatus = session.status.subscribe((s) => {
+      status = s;
+      if (s === "live") restoredKeys.delete(prefix); // connected: behave normally again
+    });
     const unsubSize = session.size.subscribe((s) => (size = s));
-    session.attach(termEl);
+    // Restored-from-layout windows stay disconnected: the ended-mask shows
+    // and a click reconnects. Freshly opened windows attach immediately.
+    session.attach(termEl, restoredKeys.has(prefix));
 
     // Keep browser focus on the terminal: an unhandled Tab moves focus out of
     // xterm (in terminal-browser's electron shell the compositor then switches

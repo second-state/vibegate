@@ -122,8 +122,10 @@ export class TerminalSession {
     this.term.onData((data) => this.#onData(data));
   }
 
-  /** Attach the terminal to a DOM element and open the stream. */
-  attach(el: HTMLElement) {
+  /** Attach the terminal to a DOM element and open the stream. `deferred`
+   *  (restored-from-layout windows): render the terminal but stay
+   *  disconnected — status lands on "ended", whose mask reconnects. */
+  attach(el: HTMLElement, deferred = false) {
     if (this.attached) return;
     this.attached = true;
     this.term.open(el);
@@ -151,6 +153,10 @@ export class TerminalSession {
     const core = (this.term as any)._core;
     if (core?.viewport) core.viewport.scrollBarWidth = 0;
     this.fit();
+    if (deferred) {
+      this.set_status("ended"); // shows the click-to-reconnect mask
+      return;
+    }
     this.#open();
   }
 

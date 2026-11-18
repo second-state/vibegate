@@ -19,6 +19,46 @@ export const MIN_H = 200;
 /** All open windows, by instance prefix. */
 export const windows: Writable<Map<string, WindowRect>> = writable(new Map());
 
+/** Window keys restored from the saved layout: their terminals start
+ *  disconnected (mask + click to reconnect) instead of auto-attaching. */
+export const restoredKeys = new Set<string>();
+
+const LAYOUT_KEY = "vibeview.layout";
+let saveTimer: ReturnType<typeof setTimeout> | null = null;
+// Dragging fires moveWindow per pointermove — debounce the localStorage
+// write to a trailing tick.
+windows.subscribe((m) => {
+  if (saveTimer !== null) clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    try {
+      const data = [...m.entries()].map(([key, r]) => ({ key, ...r }));
+      localStorage.setItem(LAYOUT_KEY, JSON.stringify(data));
+    } catch {
+      /* private mode / quota */
+    }
+  }, 250);
+});
+// Restore the previous layout: windows come back at their old spots but
+// stay disconnected until clicked (restoredKeys drives that).
+try {
+  const saved = JSON.parse(localStorage.getItem(LAYOUT_KEY) ?? "[]");
+  if (Array.isArray(saved) && saved.length) {
+    const m = new Map<string, WindowRect>();
+    for (const s of saved) {
+      if (
+        typeof s?.key === "string" &&
+        [s.x, s.y, s.w, s.h].every((n) => Number.isFinite(n))
+      ) {
+        m.set(s.key, { x: s.x, y: s.y, w: s.w, h: s.h });
+        restoredKeys.add(s.key);
+      }
+    }
+    windows.set(m);
+  }
+} catch {
+  /* bad json / private mode */
+}
+
 /** The focused window's prefix, or null. */
 export const focusPrefix: Writable<string | null> = writable(null);
 
