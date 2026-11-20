@@ -29,9 +29,17 @@ vibegate run --bind 0.0.0.0:8480
 
 ### 安装 / 更新
 
+复制粘贴即可安装(和 rustup / oh-my-zsh 一个路数):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/second-state/vibegate/main/install.sh | bash
+vibegate update               # 自更新
+```
+
+或者克隆仓库后在本地跑脚本:
+
 ```bash
 ./install.sh                  # 从 GitHub Releases 装最新版到 ~/.cargo/bin
-vibegate update               # 自更新
 ```
 
 发布仓库默认是 `second-state/vibegate`,托管在别处的话改 `install.sh` 的

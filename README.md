@@ -31,8 +31,14 @@ vibegate run --bind 0.0.0.0:8480
 ### Install / update
 
 ```bash
-./install.sh                  # latest release into ~/.cargo/bin
+curl -fsSL https://raw.githubusercontent.com/second-state/vibegate/main/install.sh | bash
 vibegate update               # self-update from GitHub Releases
+```
+
+Or clone and run the script locally:
+
+```bash
+./install.sh                  # latest release into ~/.cargo/bin
 ```
 
 Adjust the release repository (`REPO` in `install.sh` / `src/update.rs`) if you
