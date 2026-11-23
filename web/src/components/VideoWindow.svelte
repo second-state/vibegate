@@ -109,7 +109,8 @@
     </div>
 
     <div class="min-h-0 flex-1 bg-black">
-      <video controls autoplay class="h-full w-full" src={url} />
+      <!-- svelte-ignore a11y_media_has_caption -->
+      <video controls autoplay class="h-full w-full" src={url}></video>
     </div>
   </div>
 {/if}

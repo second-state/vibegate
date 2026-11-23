@@ -88,6 +88,7 @@ export const canvasOnly: Writable<boolean> = writable(false);
 export const IMAGE_KEY_PREFIX = "img:";
 export const MD_KEY_PREFIX = "md:";
 export const VIDEO_KEY_PREFIX = "video:";
+export const CAST_KEY_PREFIX = "cast:";
 
 /** In-memory images (e.g. terminal screenshots) shown in image windows
  *  without a gateway round-trip; keyed by their "blob:" window key. */
@@ -172,6 +173,11 @@ export function openImageWindow(path: string) {
 /** Open a video player window for a file path. */
 export function openVideoWindow(path: string) {
   openFileWindow(VIDEO_KEY_PREFIX + path, 720, 480);
+}
+
+/** Open an asciinema recording player window for a .cast file. */
+export function openCastWindow(path: string) {
+  openFileWindow(CAST_KEY_PREFIX + path, 720, 480);
 }
 
 /** Open a markdown viewer window for a file path. */

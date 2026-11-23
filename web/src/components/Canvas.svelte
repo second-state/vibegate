@@ -15,6 +15,7 @@
     IMAGE_KEY_PREFIX,
     MD_KEY_PREFIX,
     VIDEO_KEY_PREFIX,
+    CAST_KEY_PREFIX,
     blobImages,
   } from "../lib/canvas";
   import { connection } from "../lib/connection";
@@ -24,6 +25,7 @@
   import ImageWindow from "./ImageWindow.svelte";
   import MdWindow from "./MdWindow.svelte";
   import VideoWindow from "./VideoWindow.svelte";
+  import CastWindow from "./CastWindow.svelte";
 
   const connState = connection.state;
 
@@ -140,6 +142,8 @@
         <MdWindow path={key.slice(MD_KEY_PREFIX.length)} {zoom} />
       {:else if key.startsWith(VIDEO_KEY_PREFIX)}
         <VideoWindow path={key.slice(VIDEO_KEY_PREFIX.length)} {zoom} />
+      {:else if key.startsWith(CAST_KEY_PREFIX)}
+        <CastWindow path={key.slice(CAST_KEY_PREFIX.length)} {zoom} />
       {:else}
         <TermWindow prefix={key} {zoom} />
       {/if}
