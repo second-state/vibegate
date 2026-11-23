@@ -55,7 +55,18 @@
 
   let path = ""; // "" = gateway file root
   let entries: Entry[] = [];
-  $: filesRows.set(entries.map((e) => e.name)); // publish for keyboard nav
+  let showHidden = localStorage.getItem("vibeview.showHidden") === "1";
+  function setHidden(v: boolean) {
+    showHidden = v;
+    try {
+      localStorage.setItem("vibeview.showHidden", v ? "1" : "0");
+    } catch {
+      /* private mode */
+    }
+  }
+  // Dotfiles stay out of the list unless toggled on.
+  $: visible = showHidden ? entries : entries.filter((e) => !e.name.startsWith("."));
+  $: filesRows.set(visible.map((e) => e.name)); // publish for keyboard nav
   $: filesDir.set(path); // pasted images land in the current dir
   // Keyboard selection scrolls itself into view.
   $: if ($filesKbd && $filesSel) {
@@ -299,13 +310,22 @@
   >
     <div class="flex items-center justify-between border-b border-slate-800 px-3 py-2">
       <span class="text-xs font-semibold text-slate-300">{$t("files")}</span>
-      <button
-        class="rounded px-1 text-xs text-slate-500 hover:text-slate-200"
-        title={$t("refresh")}
-        on:click={() => load(path)}
-      >
-        ⟳
-      </button>
+      <div class="flex items-center gap-2">
+        <input
+          type="checkbox"
+          class="h-3 w-3 accent-blue-500"
+          checked={showHidden}
+          title={$t("showHidden")}
+          on:change={(e) => setHidden(e.currentTarget.checked)}
+        />
+        <button
+          class="rounded px-1 text-xs text-slate-500 hover:text-slate-200"
+          title={$t("refresh")}
+          on:click={() => load(path)}
+        >
+          ⟳
+        </button>
+      </div>
     </div>
 
     <!-- path bar -->
@@ -379,7 +399,7 @@
       {:else if errMsg}
         <p class="px-2 py-3 text-center text-xs text-red-400">{errMsg}</p>
       {/if}
-      {#each entries as e (e.name)}
+      {#each visible as e (e.name)}
         <div
           data-row={e.name}
           class="group flex w-full items-center gap-2 rounded-md px-1.5 py-1 text-sm hover:bg-slate-800 {$filesKbd && $filesSel === e.name
@@ -470,7 +490,9 @@
         </div>
       {:else}
         {#if !loading && !errMsg}
-          <p class="px-2 py-4 text-center text-xs text-slate-500">{$t("emptyDir")}</p>
+          <p class="px-2 py-4 text-center text-xs text-slate-500">
+            {entries.length ? $t("allHidden") : $t("emptyDir")}
+          </p>
         {/if}
       {/each}
     </div>
