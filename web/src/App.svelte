@@ -8,12 +8,10 @@
   import Keybar from "./components/Keybar.svelte";
   import {
     canvasOnly,
-    zoomController,
     windows,
     focusPrefix,
-    ANCHOR_X,
-    ANCHOR_Y,
     getSession,
+    centerCameraOn,
     drawerKbd,
     drawerSel,
     drawerRows,
@@ -186,22 +184,11 @@
       if (bestKey) {
         focusPrefix.set(bestKey);
         // center the newly focused window so focus is always visible
-        // (moveTo pos = window center minus the anchor offset, same as
-        // double-click-to-center on the canvas)
-        const nb = wins.get(bestKey)!;
-        const zt = get(zoomController);
-        zt?.moveTo(
-          [nb.x + nb.w / 2 - ANCHOR_X / zt.zoom, nb.y + nb.h / 2 - ANCHOR_Y / zt.zoom],
-          zt.zoom,
-        );
+        centerCameraOn(wins.get(bestKey)!);
         return;
       }
       // no neighbor in that direction: center the focused window
-      const zt = get(zoomController);
-      zt?.moveTo(
-        [ccx - ANCHOR_X / zt.zoom, ccy - ANCHOR_Y / zt.zoom],
-        zt.zoom,
-      );
+      centerCameraOn(c);
     };
     document.addEventListener("keydown", onPanKey, { capture: true });
 

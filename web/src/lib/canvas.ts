@@ -94,10 +94,20 @@ export const filesDir: Writable<string> = writable("");
  *  the drawer consumes it and resets to null. */
 export const filesNavigate: Writable<string | null> = writable(null);
 
+/** Move the camera (keeping the current zoom) so `rect` is centered in the
+ *  viewport. screen = anchor + zoom * (world − center), so the world point
+ *  that must sit at the anchor (50vw−380, 50vh−260) is center + anchor/zoom. */
+export function centerCameraOn(rect: WindowRect) {
+  const zt = get(zoomController);
+  if (!zt) return;
+  zt.moveTo(
+    [rect.x + rect.w / 2 - ANCHOR_X / zt.zoom, rect.y + rect.h / 2 - ANCHOR_Y / zt.zoom],
+    zt.zoom,
+  );
+}
+
 /** Pan the camera so `rect` is centered — skipped when it is already fully
- *  visible in the viewport. Same math as the arrow-key focus navigation:
- *  screen = anchor + zoom * (world − center), so the world point that must
- *  sit at the anchor is center + anchor/zoom (anchor = 50vw−380, 50vh−260). */
+ *  visible in the viewport. */
 export function revealWindow(rect: WindowRect) {
   const zt = get(zoomController);
   if (!zt) return;
@@ -114,11 +124,7 @@ export function revealWindow(rect: WindowRect) {
     rect.x + rect.w <= x1 &&
     rect.y >= y0 &&
     rect.y + rect.h <= y1;
-  if (visible) return;
-  zt.moveTo(
-    [rect.x + rect.w / 2 - ANCHOR_X / zt.zoom, rect.y + rect.h / 2 - ANCHOR_Y / zt.zoom],
-    zt.zoom,
-  );
+  if (!visible) centerCameraOn(rect);
 }
 
 /** Open a viewer window (image or markdown) for a file path, reusing an
