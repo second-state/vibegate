@@ -92,12 +92,16 @@
    *  html-to-image rasterizes the frame. Slow but faithful — the video is
    *  built from exactly what the visible player shows. */
   let generating = false;
-  let genPct = 0;
+  let genPct = 0; // bar width only — the label shows events done/total
+  let genDone = 0;
+  let genTotal = 0;
   async function genVideo() {
     closeCtxMenu();
     if (generating) return;
     generating = true;
     genPct = 0;
+    genDone = 0;
+    genTotal = 0;
     let holder: HTMLDivElement | null = null;
     let obs: MutationObserver | null = null;
     let offscreen: ReturnType<typeof createPlayer> | null = null;
@@ -115,6 +119,7 @@
         if (elapsed - frameTimes[frameTimes.length - 1] >= 0.04) frameTimes.push(elapsed);
       }
       const total = Number(header.duration) || elapsed + 1;
+      genTotal = frameTimes.length;
 
       // offscreen player: same theme-stripped source as the visible one
       const holderW = containerEl.clientWidth || 720;
@@ -185,6 +190,13 @@
       });
       await waitChange(2000); // initial render
 
+      // The player letterboxes the terminal inside the stage (.ap-term only
+      // covers the terminal region — the rest shows the raw bg overlay).
+      // Measure the term rect EVERY frame: the player can resize after the
+      // initial render (real font settles on first seek), so a one-shot
+      // measurement goes stale and leaves bands / cuts content.
+      const stageW = stage.clientWidth || 1;
+
       const writer = new WebMWriter({ quality: 0.95, frameRate: 30 });
       for (let k = 0; k < frameTimes.length; k++) {
         (window as any).__aplog.push(["seek", frameTimes[k]]);
@@ -194,9 +206,38 @@
         const frameCanvas = await toCanvas(stage, {
           pixelRatio: Math.min(window.devicePixelRatio || 1, 2),
         });
+        let out = frameCanvas;
+        const termEl = stage.querySelector(".ap-term") as HTMLElement | null;
+        if (termEl) {
+          const sr = stage.getBoundingClientRect();
+          const tr = termEl.getBoundingClientRect();
+          const crop = {
+            x: Math.max(0, Math.round(tr.left - sr.left)),
+            y: Math.max(0, Math.round(tr.top - sr.top)),
+            w: Math.max(1, Math.round(tr.width)),
+            h: Math.max(1, Math.round(tr.height)),
+          };
+          const s = frameCanvas.width / stageW; // raster scale (incl. pixelRatio)
+          const c = document.createElement("canvas");
+          c.width = Math.max(2, Math.round(crop.w * s) & ~1); // even sizes keep
+          c.height = Math.max(2, Math.round(crop.h * s) & ~1); // encoders happy
+          c.getContext("2d")!.drawImage(
+            frameCanvas,
+            Math.round(crop.x * s),
+            Math.round(crop.y * s),
+            Math.round(crop.w * s),
+            Math.round(crop.h * s),
+            0,
+            0,
+            c.width,
+            c.height,
+          );
+          out = c;
+        }
         const nextT = k + 1 < frameTimes.length ? frameTimes[k + 1] : total + 1;
-        writer.addFrame(frameCanvas, Math.max(1, Math.round((nextT - frameTimes[k]) * 1000)));
-        genPct = Math.round(((k + 1) / frameTimes.length) * 100);
+        writer.addFrame(out, Math.max(1, Math.round((nextT - frameTimes[k]) * 1000)));
+        genDone = k + 1;
+        genPct = Math.round((genDone / frameTimes.length) * 100);
       }
       (window as any).__aplog.push(["completing"]);
       const blob = await writer.complete();
@@ -397,7 +438,7 @@
         <div
           class="pointer-events-none absolute inset-0 z-20 flex flex-col items-center justify-center gap-2 bg-[#16161e]/85"
         >
-          <p class="text-xs text-slate-300">{$t("genVideo")} — {genPct}%</p>
+          <p class="text-xs text-slate-300">{$t("genVideo")} — {genDone}/{genTotal}</p>
           <div class="h-1.5 w-3/5 overflow-hidden rounded bg-slate-800">
             <div
               class="h-full bg-blue-500 transition-all duration-200"
@@ -431,7 +472,7 @@
       disabled={generating}
       on:mousedown|preventDefault={genVideo}
     >
-      {generating ? `生成中 ${genPct}%` : $t("genVideo")}
+      {generating ? `${genDone}/${genTotal}` : $t("genVideo")}
     </button>
   </div>
 {/if}
