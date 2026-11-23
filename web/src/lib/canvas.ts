@@ -85,6 +85,7 @@ export const canvasOnly: Writable<boolean> = writable(false);
 /** Prefix marking canvas windows that view a file (path follows the prefix). */
 export const IMAGE_KEY_PREFIX = "img:";
 export const MD_KEY_PREFIX = "md:";
+export const VIDEO_KEY_PREFIX = "video:";
 
 /** The file drawer's current directory — pasted images land here. */
 export const filesDir: Writable<string> = writable("");
@@ -110,6 +111,11 @@ function openFileWindow(prefix: string, w: number, h: number) {
 /** Open an image viewer window for a file path. */
 export function openImageWindow(path: string) {
   openFileWindow(IMAGE_KEY_PREFIX + path, 640, 480);
+}
+
+/** Open a video player window for a file path. */
+export function openVideoWindow(path: string) {
+  openFileWindow(VIDEO_KEY_PREFIX + path, 720, 480);
 }
 
 /** Open a markdown viewer window for a file path. */

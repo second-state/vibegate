@@ -11,7 +11,7 @@ use std::sync::Arc;
 
 use axum::body::Body;
 use axum::extract::{Query, State};
-use axum::http::{StatusCode, header};
+use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use serde::Deserialize;
 use serde_json::json;
@@ -24,6 +24,8 @@ pub struct FilesState {
 #[derive(Deserialize)]
 pub struct FilePath {
     path: String,
+    /// `1` → no Content-Disposition: attachment (used by inline previews).
+    inline: Option<String>,
 }
 
 fn resolve(state: &FilesState, raw: &str) -> Result<PathBuf, Response> {
@@ -108,6 +110,17 @@ fn content_type(path: &Path) -> &'static str {
         Some("txt") | Some("md") | Some("log") => "text/plain; charset=utf-8",
         Some("json") => "application/json",
         Some("pdf") => "application/pdf",
+        Some("mp4") | Some("m4v") => "video/mp4",
+        Some("webm") => "video/webm",
+        Some("mov") => "video/quicktime",
+        Some("mkv") => "video/x-matroska",
+        Some("ogv") => "video/ogg",
+        Some("avi") => "video/x-msvideo",
+        Some("mp3") => "audio/mpeg",
+        Some("wav") => "audio/wav",
+        Some("ogg") | Some("oga") => "audio/ogg",
+        Some("flac") => "audio/flac",
+        Some("m4a") | Some("aac") => "audio/mp4",
         _ => "application/octet-stream",
     }
 }
@@ -173,11 +186,17 @@ pub async fn list_handler(
     (StatusCode::OK, body.to_string()).into_response()
 }
 
-/// GET /api/file?path=...
+/// GET /api/file?path=... — with `Range` support (206 partial content) so
+/// video/audio previews can seek, and `&inline=1` to skip the
+/// Content-Disposition: attachment that makes plain downloads save to disk.
 pub async fn download_handler(
     State(state): State<Arc<FilesState>>,
     Query(q): Query<FilePath>,
+    req_headers: axum::http::HeaderMap,
 ) -> Response {
+    use axum::http::header;
+    use tokio::io::{AsyncReadExt, AsyncSeekExt};
+
     let path = match resolve(&state, &q.path) {
         Ok(p) => p,
         Err(r) => return r,
@@ -185,24 +204,102 @@ pub async fn download_handler(
     if !path.is_file() {
         return err(StatusCode::BAD_REQUEST, "not a file");
     }
-    let file = match tokio::fs::File::open(&path).await {
+    let mut file = match tokio::fs::File::open(&path).await {
         Ok(f) => f,
         Err(e) => return err(StatusCode::INTERNAL_SERVER_ERROR, &e.to_string()),
     };
+    let total = file.metadata().await.map(|m| m.len()).unwrap_or(0);
     let name = path
         .file_name()
         .map(|n| n.to_string_lossy().to_string())
         .unwrap_or_else(|| "download".to_string());
-    let stream = tokio_util::io::ReaderStream::new(file);
+
     let mut headers = axum::http::HeaderMap::new();
     headers.insert(
         header::CONTENT_TYPE,
         header::HeaderValue::from_static(content_type(&path)),
     );
-    if let Ok(v) = header::HeaderValue::from_str(&format!("attachment; filename=\"{name}\"")) {
-        headers.insert(header::CONTENT_DISPOSITION, v);
+    if q.inline.as_deref() != Some("1") {
+        if let Ok(v) = header::HeaderValue::from_str(&format!("attachment; filename=\"{name}\"")) {
+            headers.insert(header::CONTENT_DISPOSITION, v);
+        }
     }
+    headers.insert(
+        header::ACCEPT_RANGES,
+        header::HeaderValue::from_static("bytes"),
+    );
+
+    // Parse `bytes=start-end` / `bytes=start-` / `bytes=-suffix` (first
+    // range only; multipart ranges fall back to a full 200).
+    let range = req_headers
+        .get(header::RANGE)
+        .and_then(|v| v.to_str().ok())
+        .and_then(|s| s.strip_prefix("bytes="))
+        .and_then(|s| s.split(',').next())
+        .map(|s| s.trim().to_string());
+
+    if let Some(spec) = range {
+        let (start, end) = match parse_range(&spec, total) {
+            Some(r) => r,
+            None => {
+                // Unsatisfiable (or malformed): advertise the real size.
+                let mut resp = err(StatusCode::RANGE_NOT_SATISFIABLE, "bad range");
+                if let Ok(v) = header::HeaderValue::from_str(&format!("bytes */{total}")) {
+                    resp.headers_mut().insert(header::CONTENT_RANGE, v);
+                }
+                return resp;
+            }
+        };
+        let len = end - start + 1;
+        if file.seek(std::io::SeekFrom::Start(start)).await.is_err() {
+            return err(StatusCode::INTERNAL_SERVER_ERROR, "seek failed");
+        }
+        let stream = tokio_util::io::ReaderStream::new(file.take(len));
+        let mut resp = (
+            StatusCode::PARTIAL_CONTENT,
+            [(
+                header::CONTENT_RANGE,
+                format!("bytes {start}-{end}/{total}"),
+            )],
+            Body::from_stream(stream),
+        )
+            .into_response();
+        if let Ok(v) = header::HeaderValue::from_str(&len.to_string()) {
+            resp.headers_mut().insert(header::CONTENT_LENGTH, v);
+        }
+        resp.headers_mut().extend(headers);
+        return resp;
+    }
+
+    let stream = tokio_util::io::ReaderStream::new(file);
     (headers, Body::from_stream(stream)).into_response()
+}
+
+/// `bytes=start-end` / `bytes=start-` / `bytes=-suffix` → inclusive
+/// (start, end) clamped to the file size; None when malformed or empty.
+fn parse_range(spec: &str, total: u64) -> Option<(u64, u64)> {
+    if total == 0 {
+        return None;
+    }
+    let (first, last) = spec.split_once('-')?;
+    let (start, end) = if first.is_empty() {
+        // suffix: last N bytes
+        let n: u64 = last.parse().ok()?;
+        let n = n.min(total);
+        (total - n, total - 1)
+    } else {
+        let start: u64 = first.parse().ok()?;
+        let end = if last.is_empty() {
+            total - 1
+        } else {
+            last.parse::<u64>().ok()?.min(total - 1)
+        };
+        (start, end)
+    };
+    if start > end || start >= total {
+        return None;
+    }
+    Some((start, end))
 }
 
 /// GET /api/upload/status?path=...&token=... — how many bytes of a resumable

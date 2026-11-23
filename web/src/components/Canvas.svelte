@@ -14,6 +14,7 @@
     ANCHOR_Y,
     IMAGE_KEY_PREFIX,
     MD_KEY_PREFIX,
+    VIDEO_KEY_PREFIX,
   } from "../lib/canvas";
   import { connection } from "../lib/connection";
   import { appearance, resolveBgUrl } from "../lib/appearance";
@@ -21,6 +22,7 @@
   import TermWindow from "./TermWindow.svelte";
   import ImageWindow from "./ImageWindow.svelte";
   import MdWindow from "./MdWindow.svelte";
+  import VideoWindow from "./VideoWindow.svelte";
 
   const connState = connection.state;
 
@@ -133,6 +135,8 @@
         <ImageWindow path={key.slice(IMAGE_KEY_PREFIX.length)} {zoom} />
       {:else if key.startsWith(MD_KEY_PREFIX)}
         <MdWindow path={key.slice(MD_KEY_PREFIX.length)} {zoom} />
+      {:else if key.startsWith(VIDEO_KEY_PREFIX)}
+        <VideoWindow path={key.slice(VIDEO_KEY_PREFIX.length)} {zoom} />
       {:else}
         <TermWindow prefix={key} {zoom} />
       {/if}

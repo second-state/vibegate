@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { filesOpen, drawerOpen, openImageWindow, openMdWindow, filesKbd, filesSel, filesRows, filesDir, filesNavigate } from "../lib/canvas";
+  import { filesOpen, drawerOpen, openImageWindow, openMdWindow, openVideoWindow, filesKbd, filesSel, filesRows, filesDir, filesNavigate } from "../lib/canvas";
   import { connection } from "../lib/connection";
   import { get } from "svelte/store";
   import { tick } from "svelte";
@@ -14,8 +14,11 @@
 
   const IMAGE_EXT = /\.(png|jpe?g|gif|webp|svg|bmp|avif)$/i;
   const MD_EXT = /\.(md|markdown)$/i;
+  // Only what browsers can actually decode — the rest keeps the download path.
+  const VIDEO_EXT = /\.(mp4|m4v|webm|mov|mkv|ogv|avi)$/i;
   const isImage = (name: string) => IMAGE_EXT.test(name);
   const isMd = (name: string) => MD_EXT.test(name);
+  const isVideo = (name: string) => VIDEO_EXT.test(name);
 
   /** Keyboard mode (canvas `f`): navigate entries, Enter activates. */
   function moveSel(d: number) {
@@ -31,6 +34,7 @@
     if (e.is_dir) enter(e);
     else if (isImage(e.name)) openImageWindow(joinPath(e.name));
     else if (isMd(e.name)) openMdWindow(joinPath(e.name));
+    else if (isVideo(e.name)) openVideoWindow(joinPath(e.name));
     else window.location.href = `${apiBase()}/api/file?path=${encodeURIComponent(joinPath(e.name))}`;
   }
   document.addEventListener("keydown", (e: KeyboardEvent) => {
@@ -415,6 +419,26 @@
               on:click={() => openImageWindow(joinPath(e.name))}
             >
               <span class="shrink-0 text-slate-500">🖼</span>
+              <span class="min-w-0 flex-1 truncate text-slate-200">{e.name}</span>
+              <span class="shrink-0 text-[10px] tabular-nums text-slate-600">{fmtSize(e.size)}</span>
+              <span class="shrink-0 text-[10px] text-slate-600">{fmtTime(e.mtime)}</span>
+            </button>
+            <a
+              class="shrink-0 rounded px-1 text-[10px] text-slate-500 hover:bg-slate-700 hover:text-slate-200"
+              title={$t("download")}
+              href={`${apiBase()}/api/file?path=${encodeURIComponent(joinPath(e.name))}`}
+              download={e.name}
+              on:click|stopPropagation
+            >
+              ⇩
+            </a>
+          {:else if isVideo(e.name)}
+            <button
+              class="flex min-w-0 flex-1 items-center gap-2 text-left"
+              title={$t("viewVideo")}
+              on:click={() => openVideoWindow(joinPath(e.name))}
+            >
+              <span class="shrink-0 text-slate-500">🎬</span>
               <span class="min-w-0 flex-1 truncate text-slate-200">{e.name}</span>
               <span class="shrink-0 text-[10px] tabular-nums text-slate-600">{fmtSize(e.size)}</span>
               <span class="shrink-0 text-[10px] text-slate-600">{fmtTime(e.mtime)}</span>
