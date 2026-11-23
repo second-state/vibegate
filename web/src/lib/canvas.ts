@@ -94,18 +94,49 @@ export const filesDir: Writable<string> = writable("");
  *  the drawer consumes it and resets to null. */
 export const filesNavigate: Writable<string | null> = writable(null);
 
+/** Pan the camera so `rect` is centered — skipped when it is already fully
+ *  visible in the viewport. Same math as the arrow-key focus navigation:
+ *  screen = anchor + zoom * (world − center), so the world point that must
+ *  sit at the anchor is center + anchor/zoom (anchor = 50vw−380, 50vh−260). */
+export function revealWindow(rect: WindowRect) {
+  const zt = get(zoomController);
+  if (!zt) return;
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const ax = vw / 2 - ANCHOR_X;
+  const ay = vh / 2 - ANCHOR_Y;
+  const x0 = zt.center[0] - ax / zt.zoom;
+  const x1 = zt.center[0] + (vw - ax) / zt.zoom;
+  const y0 = zt.center[1] - ay / zt.zoom;
+  const y1 = zt.center[1] + (vh - ay) / zt.zoom;
+  const visible =
+    rect.x >= x0 &&
+    rect.x + rect.w <= x1 &&
+    rect.y >= y0 &&
+    rect.y + rect.h <= y1;
+  if (visible) return;
+  zt.moveTo(
+    [rect.x + rect.w / 2 - ANCHOR_X / zt.zoom, rect.y + rect.h / 2 - ANCHOR_Y / zt.zoom],
+    zt.zoom,
+  );
+}
+
 /** Open a viewer window (image or markdown) for a file path, reusing an
  *  existing window for the same path. */
 function openFileWindow(prefix: string, w: number, h: number) {
   const map = get(windows);
-  if (!map.has(prefix)) {
-    const rect = { x: 0, y: 0, w, h };
+  let rect: WindowRect;
+  if (map.has(prefix)) {
+    rect = map.get(prefix)!;
+  } else {
+    rect = { x: 0, y: 0, w, h };
     const pos = arrangeNewTerminal([...map.values()]);
     rect.x = pos.x;
     rect.y = pos.y;
     windows.set(new Map(map).set(prefix, rect));
   }
   focusPrefix.set(prefix);
+  revealWindow(rect);
 }
 
 /** Open an image viewer window for a file path. */
@@ -160,14 +191,18 @@ export function getSession(prefix: string): TerminalSession | undefined {
 /** Open a window for an instance (no-op if already open) and focus it. */
 export function openWindow(prefix: string) {
   const map = get(windows);
-  if (!map.has(prefix)) {
-    const rect = { x: 0, y: 0, w: DEFAULT_W, h: DEFAULT_H };
+  let rect: WindowRect;
+  if (map.has(prefix)) {
+    rect = map.get(prefix)!;
+  } else {
+    rect = { x: 0, y: 0, w: DEFAULT_W, h: DEFAULT_H };
     const pos = arrangeNewTerminal([...map.values()]);
     rect.x = pos.x;
     rect.y = pos.y;
     windows.set(new Map(map).set(prefix, rect));
   }
   focusPrefix.set(prefix);
+  revealWindow(rect);
 }
 
 /** Close a window (the owning component tears down its session). */
