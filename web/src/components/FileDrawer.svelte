@@ -101,11 +101,11 @@
       const body = await resp.json();
       if (!resp.ok) {
         errMsg = body.message || body.error || `HTTP ${resp.status}`;
-        if (body.type === "file") errMsg = get(t)("isFile");
+        if (body.type === "file") errMsg = tNow("isFile");
         return;
       }
       if (body.type !== "dir") {
-        errMsg = get(t)("notDir");
+        errMsg = tNow("notDir");
         return;
       }
       path = body.path;
@@ -204,7 +204,7 @@
         }
         reject(new Error(msg));
       };
-      xhr.onerror = () => reject(new Error(get(t)("netError")));
+      xhr.onerror = () => reject(new Error(tNow("netError")));
       xhr.send(offset > 0 ? file.slice(offset) : file);
     });
   }
@@ -239,7 +239,7 @@
       `${apiBase()}/api/upload/status?path=${encodeURIComponent(target)}&token=${token}`,
     );
     const body = await resp.json();
-    if (typeof body.size !== "number") throw new Error(get(t)("breakpointQueryError"));
+    if (typeof body.size !== "number") throw new Error(tNow("breakpointQueryError"));
     return body.size;
   }
 
@@ -265,7 +265,7 @@
           // Covers both the PUT and the breakpoint query (which must never
           // be skipped — assuming offset 0 could duplicate data server-side).
           if (attempt >= 3) throw e;
-          errMsg = get(t)("resumeIn", { n: attempt });
+          errMsg = tNow("resumeIn", { n: attempt });
           await new Promise((r) => setTimeout(r, 1000));
         }
       }
@@ -285,7 +285,7 @@
       await uploadOne(entry.file);
     } catch (e) {
       failedUploads = [...failedUploads, entry];
-      errMsg = get(t)("uploadFailed", { name: entry.file.name, msg: (e as Error).message });
+      errMsg = tNow("uploadFailed", { name: entry.file.name, msg: (e as Error).message });
       return;
     }
     await load(path);
@@ -300,7 +300,7 @@
         await uploadOne(f);
       } catch (e) {
         failedUploads = [...failedUploads, { id: ++failedSeq, file: f }];
-        errMsg = get(t)("uploadFailed", { name: f.name, msg: (e as Error).message });
+        errMsg = tNow("uploadFailed", { name: f.name, msg: (e as Error).message });
       }
     }
     await load(path);

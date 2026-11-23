@@ -15,6 +15,23 @@ import { TERM_PRESETS } from "./theme";
 
 // xterm's 256-color palette: 0-15 resolve from the theme; 16-231 are a
 // 6×6×6 cube; 232-255 a gray ramp.
+
+/** Structural subset of xterm's buffer cell — duck-typed so headless
+ *  terminals and real ones paint identically. */
+type IBufferCellLike = {
+  getWidth(): number;
+  getChars(): string;
+  isBold(): boolean;
+  isInverse(): boolean;
+  getFgColorMode(): number;
+  getFgColor(): number;
+  getBgColorMode(): number;
+  getBgColor(): number;
+};
+type IBufferLineLike = {
+  getCell(x: number): IBufferCellLike | undefined;
+};
+
 const CUBE = [0, 95, 135, 175, 215, 255];
 function palette256(i: number): string {
   if (i < 16) return "";
@@ -38,7 +55,7 @@ function color16(i: number, theme: Record<string, string>): string {
 
 /** Cell color; `null` = "default" (no paint — background image shows). */
 function cellColor(
-  cell: { getFgColorMode(): number; getFgColor(): number },
+  cell: IBufferCellLike,
   isFg: boolean,
   theme: Record<string, string>,
   fallback: string,
@@ -145,12 +162,49 @@ export async function termShotDataURL(
   ctx.textBaseline = "middle";
   ctx.textAlign = "center";
 
+  paintCells(ctx, term, term.cols, term.rows, cw, ch, theme, baseBg);
+  if (!opts.header) {
+    return { dataUrl: canvas.toDataURL("image/png"), w: Math.round(W), h: Math.round(H) };
+  }
+  return composeWindowShot(canvas, W, H, a.chrome, opts, baseBg, dpr);
+}
+
+/** Draw the terminal's visible grid onto ctx (assumes ctx is scaled and
+ *  the background layers are already painted). Cells with a default
+ *  background are skipped so base layers (bg image) show through. Used by
+ *  screenshots and by the cast→video renderer (headless xterm too).
+ *
+ *  `term` is duck-typed: a real Terminal or anything exposing the same
+ *  buffer/options surface (e.g. a headless xterm without a DOM). */
+export function paintCells(
+  ctx: CanvasRenderingContext2D,
+  term: {
+    options: { fontSize?: number; fontFamily?: string };
+    buffer: {
+      active: {
+        viewportY: number;
+        cursorX: number;
+        cursorY: number;
+        getLine(y: number): IBufferLineLike | undefined;
+      };
+    };
+  },
+  cols: number,
+  rows: number,
+  cw: number,
+  ch: number,
+  theme: Record<string, string>,
+  baseBg: string,
+): void {
+  ctx.textBaseline = "middle";
+  ctx.textAlign = "center";
+
   const buf = term.buffer.active;
   const top = buf.viewportY; // absolute index of the first visible line
-  for (let y = 0; y < term.rows; y++) {
+  for (let y = 0; y < rows; y++) {
     const line = buf.getLine(top + y);
     if (!line) continue;
-    for (let x = 0; x < term.cols; x++) {
+    for (let x = 0; x < cols; x++) {
       const cell = line.getCell(x);
       if (!cell || cell.getWidth() === 0) continue; // wide-char continuation
       let fg = cellColor(cell, true, theme, theme.foreground ?? "#c0caf5");
@@ -176,10 +230,6 @@ export async function termShotDataURL(
       ctx.fillText(chars, x * cw + (cw * (wide ? 2 : 1)) / 2, y * ch + ch / 2);
     }
   }
-  if (!opts.header) {
-    return { dataUrl: canvas.toDataURL("image/png"), w: Math.round(W), h: Math.round(H) };
-  }
-  return composeWindowShot(canvas, W, H, a.chrome, opts, baseBg, dpr);
 }
 
 /** Compose the styled header + border around the grid canvas. */

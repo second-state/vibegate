@@ -3,7 +3,7 @@
  * Language auto-detects from the browser, overrides persist to localStorage.
  * Placeholders: t("uploadFailed", { name, msg }) replaces "{name}" / "{msg}".
  */
-import { derived, writable, type Writable } from "svelte/store";
+import { derived, get, writable, type Writable } from "svelte/store";
 
 export type Lang = "zh" | "en";
 const KEY = "vibeview.lang";
@@ -74,6 +74,8 @@ const zh = {
   ctxPaste: "粘贴",
   ctxOpenWorkdir: "打开工作路径",
   ctxScreenshot: "截图",
+  genVideo: "生成 webm 视频",
+  exportSaved: "视频已导出:{name}",
   ctxSendRight: "发送右键",
   ctxToggleCanvas: "切换画布模式",
   paneGoneHint: "远端面板已关闭,窗口即将移除…",
@@ -187,6 +189,8 @@ const en: Record<MsgKey, string> = {
   ctxPaste: "Paste",
   ctxOpenWorkdir: "Open working directory",
   ctxScreenshot: "Screenshot",
+  genVideo: "Generate webm video",
+  exportSaved: "Video exported: {name}",
   ctxSendRight: "Send right-click",
   ctxToggleCanvas: "Toggle canvas mode",
   paneGoneHint: "Remote pane closed — removing this window…",
@@ -265,3 +269,4 @@ function translate(l: Lang, k: MsgKey, p?: Record<string, unknown>): string {
 export const t = derived(lang, (l) => (k: MsgKey, p?: Record<string, unknown>) =>
   translate(l, k, p),
 );
+
