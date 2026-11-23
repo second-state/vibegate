@@ -193,12 +193,17 @@ import { stopNative, nativePointerDown } from "../lib/actions";
   function ctxScreenshot() {
     closeCtxMenu();
     if (!session) return;
-    termShotDataURL(session).then((shot) => {
+    termShotDataURL(session, {
+      chrome: $appearance.chrome,
+      title: instance?.title || prefix,
+      status: state,
+      header: false,
+    }).then((shot) => {
       if (!shot) return;
       const ts = new Date();
       const p2 = (n: number) => String(n).padStart(2, "0");
       const name = `term-${ts.getFullYear()}${p2(ts.getMonth() + 1)}${p2(ts.getDate())}-${p2(ts.getHours())}${p2(ts.getMinutes())}${p2(ts.getSeconds())}.png`;
-      openImageBlob(name, shot.dataUrl, shot.w + 16, shot.h + 40);
+      openImageBlob(name, shot.dataUrl, shot.w + 16, shot.h + 16);
     });
   }
 

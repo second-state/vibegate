@@ -70,9 +70,40 @@ function loadImage(src: string): Promise<HTMLImageElement> {
   });
 }
 
-/** Render the visible grid; returns a PNG data URL plus its CSS pixel size. */
+export type ChromeStyle = "classic" | "glass" | "cyber";
+
+/** Colors matching the statusColor() palette in discovery.ts. */
+const STATUS_HEX: Record<string, string> = {
+  working: "#4ade80",
+  blocked: "#fbbf24",
+  done: "#38bdf8",
+  idle: "#64748b",
+  "": "#64748b",
+};
+
+function hexToRgb(hex: string): [number, number, number] {
+  const h = hex.replace("#", "");
+  const s = h.length === 3 ? h.split("").map((c) => c + c).join("") : h;
+  return [
+    parseInt(s.slice(0, 2), 16) || 0,
+    parseInt(s.slice(2, 4), 16) || 0,
+    parseInt(s.slice(4, 6), 16) || 0,
+  ];
+}
+
+/** overlay(overlayHex, alpha) composited over baseHex → opaque hex. */
+function blend(base: string, overlay: string, alpha: number): string {
+  const [r1, g1, b1] = hexToRgb(base);
+  const [r2, g2, b2] = hexToRgb(overlay);
+  const mix = (a: number, b: number) => Math.round(a * (1 - alpha) + b * alpha);
+  return `rgb(${mix(r1, r2)},${mix(g1, g2)},${mix(b1, b2)})`;
+}
+
+/** Screenshot the terminal: styled header (per appearance.chrome) + border
+ *  around the rendered grid when `header` is on; grid-only otherwise. */
 export async function termShotDataURL(
   session: TerminalSession,
+  opts: { chrome: ChromeStyle; title: string; status: string; header: boolean },
 ): Promise<{ dataUrl: string; w: number; h: number } | null> {
   const term = session.term;
   // Same private renderer-dims API the scrollbar fix and mouse tracking use.
@@ -145,5 +176,108 @@ export async function termShotDataURL(
       ctx.fillText(chars, x * cw + (cw * (wide ? 2 : 1)) / 2, y * ch + ch / 2);
     }
   }
+  if (!opts.header) {
+    return { dataUrl: canvas.toDataURL("image/png"), w: Math.round(W), h: Math.round(H) };
+  }
+  return composeWindowShot(canvas, W, H, a.chrome, opts, baseBg, dpr);
+}
+
+/** Compose the styled header + border around the grid canvas. */
+function composeWindowShot(
+  grid: HTMLCanvasElement,
+  gridW: number,
+  gridH: number,
+  chrome: ChromeStyle,
+  opts: { title: string; status: string },
+  baseBg: string,
+  dpr: number,
+): { dataUrl: string; w: number; h: number } {
+  const HEAD_H = 32;
+  const R = 8;
+  const PAD = 1; // border width
+  const W = gridW + PAD * 2;
+  const H = HEAD_H + gridH + PAD * 2;
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(W * dpr);
+  canvas.height = Math.round(H * dpr);
+  const ctx = canvas.getContext("2d")!;
+  ctx.scale(dpr, dpr);
+
+  // rounded window clip
+  const rr = () => {
+    ctx.beginPath();
+    ctx.roundRect(0.5, 0.5, W - 1, H - 1, R);
+  };
+  ctx.save();
+  rr();
+  ctx.clip();
+
+  // base
+  ctx.fillStyle = baseBg;
+  ctx.fillRect(0, 0, W, H);
+
+  // header background per style
+  if (chrome === "classic") {
+    ctx.fillStyle = "#1f2233";
+  } else if (chrome === "glass") {
+    ctx.fillStyle = blend(baseBg, "#ffffff", 0.07);
+  } else {
+    // cyber: cyan→magenta wash
+    ctx.fillStyle = blend(baseBg, "#22d3ee", 0.1);
+    ctx.fillRect(0, 0, W, HEAD_H);
+    const g = ctx.createLinearGradient(0, 0, W, 0);
+    g.addColorStop(0, "rgba(34,211,238,0.10)");
+    g.addColorStop(1, "rgba(217,70,239,0.12)");
+    ctx.fillStyle = g;
+  }
+  ctx.fillRect(0, 0, W, HEAD_H);
+  // header separator
+  ctx.fillStyle = "rgba(30,41,59,1)";
+  ctx.fillRect(0, HEAD_H - 1, W, 1);
+
+  // status dot + title
+  const dotColor = STATUS_HEX[opts.status] ?? STATUS_HEX[""];
+  ctx.fillStyle = dotColor;
+  ctx.beginPath();
+  ctx.arc(12, HEAD_H / 2, 4, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.font = "600 12px ui-sans-serif, system-ui, sans-serif";
+  ctx.textBaseline = "middle";
+  ctx.textAlign = "left";
+  ctx.fillStyle = "#cbd5e1";
+  ctx.fillText(opts.title, 24, HEAD_H / 2);
+
+  // grid below the header
+  ctx.drawImage(grid, PAD, PAD + HEAD_H, gridW, gridH);
+  ctx.restore();
+
+  // window border per style
+  ctx.save();
+  rr();
+  if (chrome === "glass") {
+    ctx.strokeStyle = "rgba(255,255,255,0.4)";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.shadowColor = "rgba(56,189,248,0.35)";
+    ctx.shadowBlur = 14;
+    ctx.stroke();
+  } else if (chrome === "cyber") {
+    ctx.strokeStyle = "#22d3ee";
+    ctx.lineWidth = 1;
+    ctx.shadowColor = "rgba(34,211,238,0.45)";
+    ctx.shadowBlur = 10;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+    // chromatic offset edges
+    ctx.strokeStyle = "rgba(217,70,239,0.4)";
+    ctx.beginPath();
+    ctx.roundRect(3.5, 3.5, W - 7, H - 7, R - 2);
+    ctx.stroke();
+  } else {
+    ctx.strokeStyle = "#64748b";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+  ctx.restore();
   return { dataUrl: canvas.toDataURL("image/png"), w: Math.round(W), h: Math.round(H) };
 }
