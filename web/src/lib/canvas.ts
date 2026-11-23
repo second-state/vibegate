@@ -31,7 +31,9 @@ windows.subscribe((m) => {
   if (saveTimer !== null) clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
     try {
-      const data = [...m.entries()].map(([key, r]) => ({ key, ...r }));
+      const data = [...m.entries()]
+        .filter(([key]) => !key.startsWith("blob:")) // in-memory only, nothing to restore
+        .map(([key, r]) => ({ key, ...r }));
       localStorage.setItem(LAYOUT_KEY, JSON.stringify(data));
     } catch {
       /* private mode / quota */
@@ -86,6 +88,23 @@ export const canvasOnly: Writable<boolean> = writable(false);
 export const IMAGE_KEY_PREFIX = "img:";
 export const MD_KEY_PREFIX = "md:";
 export const VIDEO_KEY_PREFIX = "video:";
+
+/** In-memory images (e.g. terminal screenshots) shown in image windows
+ *  without a gateway round-trip; keyed by their "blob:" window key. */
+export const blobImages: Writable<Map<string, { name: string; url: string }>> =
+  writable(new Map());
+
+/** Open an image window from an in-memory image (client-side only, nothing
+ *  is stored on the gateway machine). */
+export function openImageBlob(name: string, dataUrl: string, w: number, h: number) {
+  const key = `blob:${name}-${Date.now()}`;
+  blobImages.update((m) => new Map(m).set(key, { name, url: dataUrl }));
+  const map = get(windows);
+  const pos = arrangeNewTerminal([...map.values()]);
+  windows.set(new Map(map).set(key, { x: pos.x, y: pos.y, w, h }));
+  focusPrefix.set(key);
+  revealWindow({ ...pos, w, h });
+}
 
 /** The file drawer's current directory — pasted images land here. */
 export const filesDir: Writable<string> = writable("");
@@ -218,6 +237,13 @@ export function closeWindow(prefix: string) {
   const next = new Map(map);
   next.delete(prefix);
   windows.set(next);
+  if (prefix.startsWith("blob:")) {
+    blobImages.update((m) => {
+      const n = new Map(m);
+      n.delete(prefix);
+      return n;
+    });
+  }
   if (get(focusPrefix) === prefix) {
     focusPrefix.set(next.keys().next().value ?? null);
   }

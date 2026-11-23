@@ -21,6 +21,8 @@ import { stopNative, nativePointerDown } from "../lib/actions";
   import { TERM_PRESETS } from "../lib/theme";
   import { t } from "../lib/i18n";
   import { statusColor } from "../lib/discovery";
+  import { termShotDataURL } from "../lib/termshot";
+  import { openImageBlob } from "../lib/canvas";
   import { copyTextToClipboard, showCopiedToast } from "../lib/session";
 
   export let prefix: string;
@@ -183,6 +185,21 @@ import { stopNative, nativePointerDown } from "../lib/actions";
   function ctxOpenWorkdir() {
     closeCtxMenu();
     filesNavigate.set(instance?.cwd || "");
+  }
+
+  /** Screenshot this terminal's visible grid: vector-rendered from the
+   *  xterm buffer, opened in an in-memory image window (nothing stored on
+   *  the gateway machine). */
+  function ctxScreenshot() {
+    closeCtxMenu();
+    if (!session) return;
+    termShotDataURL(session).then((shot) => {
+      if (!shot) return;
+      const ts = new Date();
+      const p2 = (n: number) => String(n).padStart(2, "0");
+      const name = `term-${ts.getFullYear()}${p2(ts.getMonth() + 1)}${p2(ts.getDate())}-${p2(ts.getHours())}${p2(ts.getMinutes())}${p2(ts.getSeconds())}.png`;
+      openImageBlob(name, shot.dataUrl, shot.w + 16, shot.h + 40);
+    });
   }
 
   async function ctxPaste() {
@@ -423,6 +440,12 @@ import { stopNative, nativePointerDown } from "../lib/actions";
       on:mousedown|preventDefault={ctxOpenWorkdir}
     >
       {$t("ctxOpenWorkdir")}
+    </button>
+    <button
+      class="block w-full px-3 py-1.5 text-left text-xs text-slate-200 hover:bg-slate-700"
+      on:mousedown|preventDefault={ctxScreenshot}
+    >
+      {$t("ctxScreenshot")}
     </button>
     <button
       class="block w-full px-3 py-1.5 text-left text-xs text-slate-200 hover:bg-slate-700"

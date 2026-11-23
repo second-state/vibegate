@@ -15,6 +15,7 @@
     IMAGE_KEY_PREFIX,
     MD_KEY_PREFIX,
     VIDEO_KEY_PREFIX,
+    blobImages,
   } from "../lib/canvas";
   import { connection } from "../lib/connection";
   import { appearance, resolveBgUrl } from "../lib/appearance";
@@ -133,6 +134,8 @@
     {#each $orderedPrefixes as key (key)}
       {#if key.startsWith(IMAGE_KEY_PREFIX)}
         <ImageWindow path={key.slice(IMAGE_KEY_PREFIX.length)} {zoom} />
+      {:else if key.startsWith("blob:")}
+        <ImageWindow winKey={key} blob={$blobImages.get(key) ?? null} {zoom} />
       {:else if key.startsWith(MD_KEY_PREFIX)}
         <MdWindow path={key.slice(MD_KEY_PREFIX.length)} {zoom} />
       {:else if key.startsWith(VIDEO_KEY_PREFIX)}

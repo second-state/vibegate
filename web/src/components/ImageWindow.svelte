@@ -14,14 +14,18 @@
 
   export let path: string; // full file path (without the "img:" key prefix)
   export let zoom = 1;
+  /** In-memory image (terminal screenshots): overrides path/url. */
+  export let blob: { name: string; url: string } | null = null;
+  /** Window key override for blob windows ("blob:..."). */
+  export let winKey: string | null = null;
 
   $: rect = $windows.get(key());
   $: focused = $focusPrefix === key();
-  $: name = path.split("/").pop() || path;
-  $: url = `${connection.apiBase}/api/file?path=${encodeURIComponent(path)}`;
+  $: name = blob?.name || path.split("/").pop() || path;
+  $: url = blob?.url ?? `${connection.apiBase}/api/file?path=${encodeURIComponent(path)}`;
 
   function key() {
-    return "img:" + path;
+    return winKey ?? "img:" + path;
   }
 
   let loaded = false;
@@ -90,22 +94,24 @@
       >
         ⧉
       </button>
-      <button
-        class="shrink-0 rounded px-1 text-[10px] text-slate-500 hover:bg-slate-700 hover:text-slate-200"
-        title={$t("setCanvasBg")}
-        use:stopNative={["pointerdown"]}
-        on:mousedown={(e) => e.button === 0 && setAppearance({ canvasBg: path })}
-      >
-        {$t("canvasBtn")}
-      </button>
-      <button
-        class="shrink-0 rounded px-1 text-[10px] text-slate-500 hover:bg-slate-700 hover:text-slate-200"
-        title={$t("setTermBg")}
-        use:stopNative={["pointerdown"]}
-        on:mousedown={(e) => e.button === 0 && setAppearance({ termBg: path })}
-      >
-        {$t("termBtn")}
-      </button>
+      {#if !blob}
+        <button
+          class="shrink-0 rounded px-1 text-[10px] text-slate-500 hover:bg-slate-700 hover:text-slate-200"
+          title={$t("setCanvasBg")}
+          use:stopNative={["pointerdown"]}
+          on:mousedown={(e) => e.button === 0 && setAppearance({ canvasBg: path })}
+        >
+          {$t("canvasBtn")}
+        </button>
+        <button
+          class="shrink-0 rounded px-1 text-[10px] text-slate-500 hover:bg-slate-700 hover:text-slate-200"
+          title={$t("setTermBg")}
+          use:stopNative={["pointerdown"]}
+          on:mousedown={(e) => e.button === 0 && setAppearance({ termBg: path })}
+        >
+          {$t("termBtn")}
+        </button>
+      {/if}
       {#if loaded && natural.w > 0}
         <span class="shrink-0 rounded bg-slate-800 px-1 text-[10px] tabular-nums text-slate-400">
           {natural.w}×{natural.h}
