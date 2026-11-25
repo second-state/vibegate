@@ -1,0 +1,22 @@
+{
+  "name": "vibegate",
+  "short_name": "vibegate",
+  "start_url": "/",
+  "scope": "/",
+  "display": "fullscreen",
+  "display_override": ["fullscreen", "standalone"],
+  "background_color": "#16161e",
+  "theme_color": "#16161e",
+  "icons": [
+    {
+      "src": "/axolotl-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/axolotl-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

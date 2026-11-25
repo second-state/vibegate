@@ -269,7 +269,13 @@
   });
 </script>
 
-<div class="fixed inset-0 flex flex-col text-slate-200 select-none">
+<!-- Safe-area padding keeps the bar/canvas out of notches and the home
+     indicator when launched fullscreen from a home-screen icon; zero in
+     a normal browser tab. -->
+<div
+  class="fixed inset-0 flex flex-col text-slate-200 select-none"
+  style:padding="env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)"
+>
   <ConnectBar />
   <div class="relative flex-1 min-h-0">
     <Canvas />
