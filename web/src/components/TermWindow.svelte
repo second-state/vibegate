@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { get } from "svelte/store";
   import { TerminalSession, type SessionStatus } from "../lib/session";
   import {
     registerSession,
@@ -226,6 +227,16 @@ import { stopNative, nativePointerDown } from "../lib/actions";
     canvasOnly.update((v) => !v);
     closeCtxMenu();
   }
+  /** Copy this pane's herdr pane id (workspace:pane, e.g. "w7:p1") — the id
+   *  the herdr CLI uses. Note the window prefix is the terminal id, so look
+   *  the pane id up from the pane list. */
+  function ctxCopyPaneId() {
+    closeCtxMenu();
+    const pane = get(discovery.list).find((i) => i.sid === prefix);
+    copyTextToClipboard(pane?.pane_id || prefix)
+      .then(() => showCopiedToast(true, ""))
+      .catch((e) => showCopiedToast(false, String(e)));
+  }
 
   // --- header drag ---
   let drag: { px: number; py: number; x: number; y: number } | null = null;
@@ -451,6 +462,12 @@ import { stopNative, nativePointerDown } from "../lib/actions";
       on:mousedown|preventDefault={ctxScreenshot}
     >
       {$t("ctxScreenshot")}
+    </button>
+    <button
+      class="block w-full px-3 py-1.5 text-left text-xs text-slate-200 hover:bg-slate-700"
+      on:mousedown|preventDefault={ctxCopyPaneId}
+    >
+      {$t("ctxCopyPaneId")}
     </button>
     <button
       class="block w-full px-3 py-1.5 text-left text-xs text-slate-200 hover:bg-slate-700"
