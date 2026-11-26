@@ -13,13 +13,17 @@ use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
 use axum::response::IntoResponse;
 use futures_util::{SinkExt, StreamExt};
 use serde::Deserialize;
-use serde_json::json;
+use serde_json::{Value, json};
 
+use crate::Backend;
+use crate::hc;
 use crate::herdr::Herdr;
 
 #[derive(Clone)]
 pub struct WsState {
     pub herdr: Arc<Herdr>,
+    /// Session backend — workspace control ops are herdr-only for now.
+    pub backend: Backend,
     /// Latest `{"type":"sessions",...}` JSON, rebuilt on every change.
     pub sessions: Arc<tokio::sync::RwLock<String>>,
     pub changed: tokio::sync::watch::Receiver<u64>,
@@ -112,6 +116,14 @@ async fn handle_control(
         return send_err(out, "unrecognized control message").await;
     };
     match msg.kind.as_str() {
+        "ping" => {
+            out.send(Message::text(json!({"type":"pong"}).to_string()))
+                .await?;
+            Ok(())
+        }
+        // hc backend: control ops map to terminal.run / terminal.kill over
+        // the core socket (workspace = the `workspace` label value).
+        kind if state.backend == Backend::Hc => hc_control(state, out, kind, &msg).await,
         "create" => {
             let label = msg.label.unwrap_or_else(|| "web".to_string());
             let result = state
@@ -211,11 +223,6 @@ async fn handle_control(
                 .await?;
             Ok(())
         }
-        "ping" => {
-            out.send(Message::text(json!({"type":"pong"}).to_string()))
-                .await?;
-            Ok(())
-        }
         other => send_err(out, &format!("unknown control type {other:?}")).await,
     }
 }
@@ -223,4 +230,93 @@ async fn handle_control(
 async fn send_err(out: &tokio::sync::mpsc::Sender<Message>, message: &str) -> Result<()> {
     let reply = json!({"type":"error","message":message});
     Ok(out.send(Message::text(reply.to_string())).await?)
+}
+
+/// hc backend control ops, via the core socket's plain-mode JSON-RPC.
+/// On this backend a "workspace" is just the `workspace` label value: a
+/// create starts a shell carrying that label, and terminal.run's reply
+/// carries the address directly (no snapshot polling needed).
+async fn hc_control(
+    _state: &Arc<WsState>,
+    out: &tokio::sync::mpsc::Sender<Message>,
+    kind: &str,
+    msg: &ControlMsg,
+) -> Result<()> {
+    let client = hc::HcClient::new(hc::HcClient::default_socket());
+    match kind {
+        "create" | "create_pane" => {
+            let label = match kind {
+                "create" => Some(msg.label.clone().unwrap_or_else(|| "web".to_string())),
+                _ => msg.workspace_id.clone(),
+            };
+            let Some(label) = label else {
+                return send_err(out, "create_pane requires workspace_id").await;
+            };
+            let result = client
+                .call(
+                    "terminal.run",
+                    json!({
+                        "argv": [], // that machine's shell
+                        "labels": {"workspace": label},
+                        "cwd": msg.cwd,
+                    }),
+                )
+                .await?;
+            let Some(sid) = result.get("address").and_then(Value::as_str) else {
+                return send_err(out, "terminal.run returned no address").await;
+            };
+            let reply = json!({
+                "type": if kind == "create" { "created" } else { "created_pane" },
+                "sid": sid,
+                "workspace_id": label,
+            });
+            out.send(Message::text(reply.to_string())).await?;
+            Ok(())
+        }
+        "kill_pane" => {
+            let Some(pane_id) = msg.pane_id.clone() else {
+                return send_err(out, "kill_pane requires pane_id").await;
+            };
+            client
+                .call("terminal.kill", json!({"terminal": pane_id}))
+                .await?;
+            out.send(Message::text(json!({"type":"killed_pane"}).to_string()))
+                .await?;
+            Ok(())
+        }
+        "kill" => {
+            let Some(ws_id) = msg.workspace_id.clone() else {
+                return send_err(out, "kill requires workspace_id").await;
+            };
+            let list = client.call("terminal.list", json!({})).await?;
+            let members: Vec<&str> = list
+                .get("terminals")
+                .and_then(Value::as_array)
+                .map(|arr| {
+                    arr.iter()
+                        .filter(|t| {
+                            t.get("state").and_then(Value::as_str) == Some("live")
+                                && t.get("labels")
+                                    .and_then(|l| l.get("workspace"))
+                                    .and_then(Value::as_str)
+                                    == Some(ws_id.as_str())
+                        })
+                        .filter_map(|t| t.get("address").and_then(Value::as_str))
+                        .collect()
+                })
+                .unwrap_or_default();
+            if members.is_empty() {
+                return send_err(out, &format!("no live terminals in workspace {ws_id:?}")).await;
+            }
+            for address in members {
+                client
+                    .call("terminal.kill", json!({"terminal": address}))
+                    .await?;
+            }
+            out.send(Message::text(json!({"type":"killed"}).to_string()))
+                .await?;
+            Ok(())
+        }
+        other => send_err(out, &format!("unknown control type {other:?}")).await,
+    }
 }

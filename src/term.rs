@@ -7,13 +7,17 @@
 //! and on resize, so there is no baseline protocol and nothing to parse —
 //! the stream passes through verbatim, exactly like vibetty's PtyOutput.
 
+use axum::extract::State;
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
 use axum::extract::{Path, Query};
 use axum::response::IntoResponse;
 use futures_util::{SinkExt, StreamExt};
 use serde::Deserialize;
 
+use crate::Backend;
 use crate::pty::GatePty;
+use crate::ws::WsState;
+use std::sync::Arc;
 
 #[derive(Deserialize)]
 pub struct TermQuery {
@@ -22,19 +26,31 @@ pub struct TermQuery {
 }
 
 pub async fn term_handler(
+    State(state): State<Arc<WsState>>,
     Path(terminal_id): Path<String>,
     Query(q): Query<TermQuery>,
     upgrade: WebSocketUpgrade,
 ) -> impl IntoResponse {
     let cols = q.cols.unwrap_or(80).clamp(8, 500);
     let rows = q.rows.unwrap_or(24).clamp(2, 200);
-    upgrade.on_upgrade(move |sock| terminal_sock(terminal_id, cols, rows, sock))
+    let backend = state.backend;
+    upgrade.on_upgrade(move |sock| terminal_sock(backend, terminal_id, cols, rows, sock))
 }
 
-async fn terminal_sock(terminal_id: String, cols: u16, rows: u16, sock: WebSocket) {
-    let mut args: Vec<&str> = vec!["terminal", "attach"];
-    args.push(&terminal_id);
-    let pty = match GatePty::spawn("herdr", &args, (rows, cols)).await {
+async fn terminal_sock(
+    backend: Backend,
+    terminal_id: String,
+    cols: u16,
+    rows: u16,
+    sock: WebSocket,
+) {
+    // Both backends attach through their CLI in a PTY: `herdr terminal
+    // attach <tid>` / `hc attach <tid>` stream raw bytes once attached.
+    let (program, args): (&str, Vec<&str>) = match backend {
+        Backend::Herdr => ("herdr", vec!["terminal", "attach", &terminal_id]),
+        Backend::Hc => ("hc", vec!["attach", &terminal_id]),
+    };
+    let pty = match GatePty::spawn(program, &args, (rows, cols)).await {
         Ok(p) => p,
         Err(e) => {
             tracing::warn!("[{terminal_id}] attach failed: {e}");

@@ -57,15 +57,35 @@
     }));
   }
 
+  /** New-workspace flow: the + button first reveals a name input; Enter/✓
+   *  creates it (empty = "web"), Esc/× cancels. */
+  let showWsInput = false;
+  let wsName = "";
+  let wsInputEl: HTMLInputElement | undefined;
+
   function createWorkspace() {
     if (creatingWorkspace || $connState !== "connected") return;
+    showWsInput = true;
+    wsName = "";
+    tick().then(() => wsInputEl?.focus());
+  }
+
+  function confirmWorkspace() {
+    if (creatingWorkspace) return;
+    const label = wsName.trim() || "web";
+    showWsInput = false;
     creatingWorkspace = true;
-    connection.createWorkspace("web", undefined, (sid) => {
+    connection.createWorkspace(label, undefined, (sid) => {
       creatingWorkspace = false;
       expandedStore.update((m) => ({ ...m, [sid]: true }));
       openWindow(sid);
     });
     setTimeout(() => (creatingWorkspace = false), 5000);
+  }
+
+  function cancelWorkspace() {
+    showWsInput = false;
+    wsName = "";
   }
 
   function createPane(groupId: string) {
@@ -192,16 +212,48 @@
         </div>
       {/if}
 
-      <!-- new workspace -->
-      <button
-        class="mt-1 flex w-full items-center justify-center gap-1 rounded-lg border border-dashed border-slate-600 px-2 py-1.5 text-sm text-slate-300 hover:bg-slate-800 disabled:opacity-40"
-        disabled={$connState !== "connected" || creatingWorkspace}
-        title={$t("newWorkspaceTitle")}
-        on:click={createWorkspace}
-      >
-        <span class="text-base leading-none">+</span>
-        {creatingWorkspace ? $t("creating") : $t("newWorkspace")}
-      </button>
+      <!-- new workspace: name input first -->
+      {#if showWsInput}
+        <div
+          class="mt-1 flex items-center gap-1 rounded-lg border border-slate-600 bg-[#1a1b26] px-2 py-1"
+        >
+          <input
+            bind:this={wsInputEl}
+            bind:value={wsName}
+            placeholder={$t("newWorkspaceName")}
+            maxlength={32}
+            class="min-w-0 flex-1 bg-transparent text-sm text-slate-200 outline-none"
+            on:keydown={(e) => {
+              if (e.key === "Enter") confirmWorkspace();
+              else if (e.key === "Escape") cancelWorkspace();
+            }}
+          />
+          <button
+            class="shrink-0 rounded px-1 text-sm text-slate-300 hover:bg-slate-700 hover:text-green-300"
+            title={$t("connect")}
+            on:click|stopPropagation={confirmWorkspace}
+          >
+            ✓
+          </button>
+          <button
+            class="shrink-0 rounded px-1 text-sm text-slate-300 hover:bg-slate-700 hover:text-red-300"
+            title={$t("dismiss")}
+            on:click|stopPropagation={cancelWorkspace}
+          >
+            ×
+          </button>
+        </div>
+      {:else}
+        <button
+          class="mt-1 flex w-full items-center justify-center gap-1 rounded-lg border border-dashed border-slate-600 px-2 py-1.5 text-sm text-slate-300 hover:bg-slate-800 disabled:opacity-40"
+          disabled={$connState !== "connected" || creatingWorkspace}
+          title={$t("newWorkspaceTitle")}
+          on:click={createWorkspace}
+        >
+          <span class="text-base leading-none">+</span>
+          {creatingWorkspace ? $t("creating") : $t("newWorkspace")}
+        </button>
+      {/if}
     </div>
   </div>
 {/if}

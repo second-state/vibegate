@@ -1,4 +1,5 @@
 mod files;
+mod hc;
 mod herdr;
 mod pty;
 mod term;
@@ -14,7 +15,7 @@ use anyhow::{Context as _, Result};
 use axum::extract::ConnectInfo;
 use axum::http::{StatusCode, Uri, header};
 use axum::response::{IntoResponse, Response};
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
 use serde_json::json;
 
 use herdr::Herdr;
@@ -95,6 +96,13 @@ async fn shutdown_handler(ConnectInfo(addr): ConnectInfo<std::net::SocketAddr>) 
     (StatusCode::OK, json!({"type": "shutdown"}).to_string()).into_response()
 }
 
+/// Session backend: classic herdr socket, or herdr-core (`hc`).
+#[derive(ValueEnum, Debug, Clone, Copy, PartialEq, Eq)]
+enum Backend {
+    Herdr,
+    Hc,
+}
+
 /// Web gateway for herdr terminal sessions.
 #[derive(Parser, Debug)]
 #[command(name = "vibegate", version, about)]
@@ -102,6 +110,16 @@ struct Cli {
     /// herdr socket path (default ~/.config/herdr/herdr.sock)
     #[arg(long, global = true, env = "VIBEGATE_HERDR_SOCKET")]
     herdr_socket: Option<PathBuf>,
+
+    /// run: session backend (herdr socket or herdr-core `hc`)
+    #[arg(
+        long,
+        global = true,
+        value_enum,
+        env = "VIBEGATE_BACKEND",
+        default_value = "herdr"
+    )]
+    backend: Backend,
 
     /// run: bind address to listen on; stop/status: gateway to talk to
     /// (0.0.0.0 dials loopback).
@@ -191,13 +209,14 @@ async fn main() -> Result<()> {
             if detach {
                 spawn_detached(
                     &cli.bind,
+                    cli.backend,
                     web_dir.as_ref(),
                     &file_roots,
                     herdr_socket.as_deref(),
                 )
                 .await
             } else {
-                run(herdr, cli.bind.clone(), web_dir, file_roots).await
+                run(herdr, cli.backend, cli.bind.clone(), web_dir, file_roots).await
             }
         }
         Commands::Stop => stop_gateway(&loopback_base(&cli.bind)).await,
@@ -262,6 +281,7 @@ fn init_logger() -> Option<flexi_logger::LoggerHandle> {
 /// the same foreground `run`; only VIBEGATE_LOG_FILE tells it to log to file.
 async fn spawn_detached(
     bind: &str,
+    backend: Backend,
     web_dir: Option<&PathBuf>,
     file_roots: &[PathBuf],
     herdr_socket: Option<&std::path::Path>,
@@ -321,6 +341,9 @@ async fn spawn_detached(
     }
     if let Some(sock) = herdr_socket {
         cmd.arg("--herdr-socket").arg(sock);
+    }
+    if backend == Backend::Hc {
+        cmd.arg("--backend").arg("hc");
     }
     cmd.spawn().context("spawn detached daemon")?;
     println!(
@@ -396,67 +419,181 @@ async fn status_gateway(base: &str) -> Result<()> {
     Ok(())
 }
 
+/// Build the `{"type":"sessions",...}` payload from the hc terminal map —
+/// same shape the herdr poller emits so the frontend stays unchanged.
+/// Workspace groups are derived client-side from the `workspace` label.
+fn hc_sessions_json(terms: &std::collections::BTreeMap<String, hc::HcTerminal>) -> String {
+    let mut ws_counts: std::collections::BTreeMap<&str, u64> = std::collections::BTreeMap::new();
+    let mut panes = Vec::with_capacity(terms.len());
+    for t in terms.values() {
+        if !t.workspace.is_empty() {
+            *ws_counts.entry(t.workspace.as_str()).or_default() += 1;
+        }
+        panes.push(json!({
+            "sid": t.address,
+            "pane_id": t.address,
+            "title": t.title,
+            "agent": t.agent,
+            "agent_status": t.agent_status.clone().unwrap_or_else(|| "unknown".into()),
+            "cwd": t.cwd,
+            "workspace_id": t.workspace,
+        }));
+    }
+    let workspaces: Vec<_> = ws_counts
+        .iter()
+        .enumerate()
+        .map(|(i, (label, count))| {
+            json!({
+                // id must equal the panes' workspace_id (the label value) —
+                // the frontend groups panes by matching it against the
+                // workspace id.
+                "id": label,
+                "label": label,
+                "number": i + 1,
+                "pane_count": count,
+            })
+        })
+        .collect();
+    json!({"type":"sessions","panes":panes,"workspaces":workspaces}).to_string()
+}
+
 async fn run(
     herdr: Arc<Herdr>,
+    backend: Backend,
     bind: String,
     web_dir: Option<PathBuf>,
     file_roots: Vec<PathBuf>,
 ) -> Result<()> {
-    // Session poller: rebuild the sessions JSON every 2 s; bump a watch
-    // counter on change (events.subscribe would be nicer — later).
     let sessions_rw = Arc::new(tokio::sync::RwLock::new(String::new()));
     let (changed_tx, changed_rx) = tokio::sync::watch::channel(0u64);
-    {
-        let herdr = herdr.clone();
-        let sessions_rw = sessions_rw.clone();
-        tokio::spawn(async move {
-            let mut last = String::new();
-            let mut counter: u64 = 0;
-            loop {
-                let json = match herdr.snapshot().await {
-                    Ok(snapshot) => {
-                        let panes: Vec<_> = herdr::panes_from_snapshot(&snapshot)
-                            .into_iter()
-                            .map(|p| {
-                                json!({
-                                    "sid": p.terminal_id,
-                                    "pane_id": p.pane_id,
-                                    "title": p.title,
-                                    "agent": p.agent,
-                                    "agent_status": p.agent_status,
-                                    "cwd": p.cwd,
-                                    "workspace_id": p.workspace_id,
+    match backend {
+        Backend::Herdr => {
+            // Session poller: rebuild the sessions JSON every 2 s; bump a
+            // watch counter on change (events.subscribe would be nicer — later).
+            let herdr = herdr.clone();
+            let sessions_rw = sessions_rw.clone();
+            tokio::spawn(async move {
+                let mut last = String::new();
+                let mut counter: u64 = 0;
+                loop {
+                    let json = match herdr.snapshot().await {
+                        Ok(snapshot) => {
+                            let panes: Vec<_> = herdr::panes_from_snapshot(&snapshot)
+                                .into_iter()
+                                .map(|p| {
+                                    json!({
+                                        "sid": p.terminal_id,
+                                        "pane_id": p.pane_id,
+                                        "title": p.title,
+                                        "agent": p.agent,
+                                        "agent_status": p.agent_status,
+                                        "cwd": p.cwd,
+                                        "workspace_id": p.workspace_id,
+                                    })
                                 })
-                            })
-                            .collect();
-                        let workspaces: Vec<_> = herdr::workspaces_from_snapshot(&snapshot)
-                            .into_iter()
-                            .map(|w| {
-                                json!({
-                                    "id": w.workspace_id,
-                                    "label": w.label,
-                                    "number": w.number,
-                                    "pane_count": w.pane_count,
+                                .collect();
+                            let workspaces: Vec<_> = herdr::workspaces_from_snapshot(&snapshot)
+                                .into_iter()
+                                .map(|w| {
+                                    json!({
+                                        "id": w.workspace_id,
+                                        "label": w.label,
+                                        "number": w.number,
+                                        "pane_count": w.pane_count,
+                                    })
                                 })
-                            })
-                            .collect();
-                        json!({"type":"sessions","panes":panes,"workspaces":workspaces}).to_string()
+                                .collect();
+                            json!({"type":"sessions","panes":panes,"workspaces":workspaces})
+                                .to_string()
+                        }
+                        Err(e) => {
+                            tracing::warn!("snapshot failed: {e}");
+                            json!({"type":"sessions","panes":[],"workspaces":[],"error":e.to_string()})
+                                .to_string()
+                        }
+                    };
+                    if json != last {
+                        *sessions_rw.write().await = json.clone();
+                        counter += 1;
+                        let _ = changed_tx.send(counter);
+                        last = json;
                     }
-                    Err(e) => {
-                        tracing::warn!("snapshot failed: {e}");
-                        json!({"type":"sessions","panes":[],"workspaces":[],"error":e.to_string()})
-                            .to_string()
-                    }
-                };
-                if json != last {
-                    *sessions_rw.write().await = json.clone();
-                    counter += 1;
-                    let _ = changed_tx.send(counter);
-                    last = json;
+                    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
                 }
-                tokio::time::sleep(std::time::Duration::from_secs(2)).await;
-            }
-        });
+            });
+        }
+        Backend::Hc => {
+            // herdr-core backend: one long-running `hc events` child feeds
+            // parsed events; the consumer keeps the terminal map and
+            // rebuilds the same sessions payload (labels.workspace stands
+            // in for herdr's workspaces).
+            let sessions_rw = sessions_rw.clone();
+            tokio::spawn(async move {
+                let (tx, mut rx) = tokio::sync::mpsc::channel::<hc::HcEvent>(256);
+                tokio::spawn(hc::run_feed(tx));
+                tracing::info!("hc backend: session feed from `hc events`");
+                let mut terms: std::collections::BTreeMap<String, hc::HcTerminal> =
+                    std::collections::BTreeMap::new();
+                let mut last = String::new();
+                let mut counter: u64 = 0;
+                loop {
+                    let Some(ev) = rx.recv().await else { return };
+                    match ev {
+                        hc::HcEvent::Snapshot(list) => {
+                            terms.clear();
+                            for t in list {
+                                terms.insert(t.address.clone(), t);
+                            }
+                        }
+                        hc::HcEvent::Upsert(t) => {
+                            terms.insert(t.address.clone(), t);
+                        }
+                        hc::HcEvent::Remove(address) => {
+                            terms.remove(&address);
+                        }
+                        hc::HcEvent::Status {
+                            terminal,
+                            app,
+                            state,
+                        } => {
+                            if let Some(t) = terms.get_mut(&terminal) {
+                                t.agent = app;
+                                t.agent_status = state;
+                            }
+                        }
+                        hc::HcEvent::Title { terminal, title } => {
+                            if let Some(t) = terms.get_mut(&terminal) {
+                                t.title = title;
+                            }
+                        }
+                        hc::HcEvent::Labels { terminal, labels } => {
+                            if let Some(t) = terms.get_mut(&terminal) {
+                                t.labels = labels.clone();
+                                t.workspace = labels.get("workspace").cloned().unwrap_or_default();
+                            }
+                        }
+                        hc::HcEvent::Foreground { terminal, cwd } => {
+                            if let (Some(t), Some(c)) = (terms.get_mut(&terminal), cwd) {
+                                t.cwd = c;
+                            }
+                        }
+                        hc::HcEvent::Ended { terminal } => {
+                            // herdr parity: finished/lost panes leave the
+                            // session list (kept ones return via `restarted`
+                            // → Upsert when their shell comes back).
+                            terms.remove(&terminal);
+                        }
+                    }
+                    let json = hc_sessions_json(&terms);
+                    if json != last {
+                        *sessions_rw.write().await = json.clone();
+                        counter += 1;
+                        let _ = changed_tx.send(counter);
+                        last = json;
+                    }
+                }
+            });
+        }
     }
 
     let roots = if file_roots.is_empty() {
@@ -471,6 +608,7 @@ async fn run(
     let files_state = Arc::new(files::FilesState { roots });
     let ws_state = Arc::new(ws::WsState {
         herdr: herdr.clone(),
+        backend,
         sessions: sessions_rw,
         changed: changed_rx,
     });

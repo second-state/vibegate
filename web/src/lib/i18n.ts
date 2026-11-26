@@ -105,6 +105,7 @@ const zh = {
   newWorkspace: "新建 workspace",
   creating: "创建中…",
   newWorkspaceTitle: "新建 workspace(带一个终端)",
+  newWorkspaceName: "workspace 名称,回车确认(留空 = web)",
 
   // FileDrawer
   refresh: "刷新",
@@ -221,6 +222,7 @@ const en: Record<MsgKey, string> = {
   newWorkspace: "New workspace",
   creating: "Creating…",
   newWorkspaceTitle: "New workspace (with one terminal)",
+  newWorkspaceName: "workspace name, Enter to confirm (empty = web)",
 
   // FileDrawer
   refresh: "Refresh",
