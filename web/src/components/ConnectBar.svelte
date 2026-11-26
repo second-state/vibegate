@@ -242,29 +242,30 @@
               spellcheck="false"
             />
           </label>
-          {#if $appearance.termBg}
-            <div class="mt-1.5 text-xs text-slate-400">
-              <div class="mb-1">{$t("bgOpacity")}</div>
-              <div class="flex items-center gap-2">
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  step="1"
-                  class="min-w-0 flex-1 accent-blue-500"
-                  bind:value={$appearance.termBgOpacity}
-                />
-                <input
-                  type="number"
-                  min="0"
-                  max="100"
-                  class="w-14 shrink-0 rounded-md border border-slate-700 bg-slate-900 px-1.5 py-1 text-right text-xs text-slate-100 outline-none focus:border-blue-500"
-                  bind:value={$appearance.termBgOpacity}
-                />
-                <span class="shrink-0">%</span>
-              </div>
+          <!-- opacity now applies to the terminal background itself: the
+               image overlay when termBg is set, else the background color
+               (lets the canvas background show through) -->
+          <div class="mt-1.5 text-xs text-slate-400">
+            <div class="mb-1">{$t("bgOpacity")}</div>
+            <div class="flex items-center gap-2">
+              <input
+                type="range"
+                min="0"
+                max="100"
+                step="1"
+                class="min-w-0 flex-1 accent-blue-500"
+                bind:value={$appearance.termBgOpacity}
+              />
+              <input
+                type="number"
+                min="0"
+                max="100"
+                class="w-14 shrink-0 rounded-md border border-slate-700 bg-slate-900 px-1.5 py-1 text-right text-xs text-slate-100 outline-none focus:border-blue-500"
+                bind:value={$appearance.termBgOpacity}
+              />
+              <span class="shrink-0">%</span>
             </div>
-          {/if}
+          </div>
           <div class="mt-1.5 mb-1.5 text-xs text-slate-400">
             <div class="mb-1">{$t("keybarLabel")}</div>
             <div class="flex overflow-hidden rounded-md border border-slate-700">

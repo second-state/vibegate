@@ -13,7 +13,9 @@ export type Appearance = {
   canvasBg: string;
   /** Background image for terminal windows: file path or http(s) URL. Empty = none. */
   termBg: string;
-  /** Opacity of the terminal background image, 0–100 (100 = fully opaque). */
+  /** Opacity of the terminal background, 0–100 (100 = fully opaque): the
+   *  image overlay when termBg is set, else the background color itself
+   *  (fading it reveals the canvas background behind the pane). */
   termBgOpacity: number;
   /** Keybar placement: float under the focused window, docked on top, hidden. */
   keybar: "float" | "top" | "hidden";

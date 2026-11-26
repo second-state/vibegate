@@ -21,6 +21,17 @@ import { t } from "./i18n";
 
 const SYNC_DEBOUNCE_MS = 200;
 
+/** `#rrggbb` → `#rrggbbaa` with alpha = opacityPct/100 (xterm's
+ *  allowTransparency renders it over whatever sits behind the canvas). */
+function withAlpha(hex: string, opacityPct: number): string {
+  const body = hex.replace("#", "");
+  if (body.length !== 6) return hex;
+  const a = Math.round((Math.min(100, Math.max(0, opacityPct)) / 100) * 255)
+    .toString(16)
+    .padStart(2, "0");
+  return `#${body}${a}`;
+}
+
 export type SessionStatus = "connecting" | "live" | "ended" | "error";
 
 /** Small transient toast at the top of the screen. */
@@ -231,12 +242,18 @@ export class TerminalSession {
   }
 
   /** Resolve the xterm theme from the appearance settings: the preset colors,
-   *  with a transparent background when a terminal background image is set. */
+   *  with a fully transparent background when a terminal background image is
+   *  set, or an alpha-faded background color when the opacity slider is below
+   *  100 (lets the canvas background show through the pane). */
   #resolvedTheme() {
     const a = getAppearance();
     const preset = TERM_PRESETS[a.theme] ?? TERM_PRESETS["tokyo-night"];
     const theme = { ...preset.theme };
-    if (a.termBg) theme.background = "#00000000";
+    if (a.termBg) {
+      theme.background = "#00000000";
+    } else if ((a.termBgOpacity ?? 100) < 100) {
+      theme.background = withAlpha(theme.background ?? "#1a1b26", a.termBgOpacity ?? 100);
+    }
     return theme;
   }
 
