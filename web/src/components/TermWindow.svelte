@@ -111,7 +111,10 @@ import { stopNative, nativePointerDown } from "../lib/actions";
 
     // Right-click: block the button-2 report to the app and open our menu.
     const trackCell = (e: MouseEvent) => {
-      const scr = session?.term.element?.querySelector(".xterm-screen");
+      // xterm: inner .xterm-screen; ghostty-web (spike): the element itself
+      // (canvas fills it), same geometry.
+      const scr =
+        session?.term.element?.querySelector(".xterm-screen") ?? session?.term.element;
       if (!scr || !session) return;
       const b = scr.getBoundingClientRect();
       const cw = session.term.cols ? b.width / session.term.cols : 0;

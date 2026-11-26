@@ -8,11 +8,11 @@
  * text frame.
  */
 
-import { Terminal } from "@xterm/xterm";
-import { FitAddon } from "@xterm/addon-fit";
-import { ImageAddon } from "@xterm/addon-image";
-import { WebglAddon } from "@xterm/addon-webgl";
-import { UnicodeGraphemesAddon } from "@xterm/addon-unicode-graphemes";
+// SPIKE (spike/ghostty-web): libghostty WASM instead of xterm.js.
+// Rendering is ghostty's canvas renderer; kitty graphics and grapheme
+// clustering are native. The xterm addons (webgl/unicode/image) are gone —
+// see the notes in attach().
+import { init, Terminal, FitAddon } from "ghostty-web";
 import { get, writable, type Writable } from "svelte/store";
 import { TERM_FONT_FAMILY, TERM_FONT_SIZE, TERM_PRESETS } from "./theme";
 import { appearance, getAppearance, resolveBgUrl } from "./appearance";
@@ -20,6 +20,12 @@ import { stickyMods, clearMods, applyModsToTyped } from "./mods";
 import { t } from "./i18n";
 
 const SYNC_DEBOUNCE_MS = 200;
+
+/** WASM init promise — `new Terminal()` throws until this resolves. */
+let ghosttyReady: Promise<void> | null = null;
+function ghosttyInit(): Promise<void> {
+  return (ghosttyReady ??= init());
+}
 
 export type SessionStatus = "connecting" | "live" | "ended" | "error";
 
@@ -69,8 +75,10 @@ export async function copyTextToClipboard(text: string): Promise<void> {
 
 export class TerminalSession {
   readonly prefix: string; // kept for compatibility: the herdr terminal id
-  readonly term: Terminal;
-  readonly fitAddon: FitAddon;
+  /** Created in attach() (needs the async WASM init); any-typed: the
+   *  ghostty-web compat surface is duck-typed for this spike. */
+  term: any = null;
+  fitAddon: any = null;
 
   readonly status: Writable<SessionStatus> = writable("connecting");
   /** Current terminal grid size, mirrored from the last fit/sync. */
@@ -94,22 +102,15 @@ export class TerminalSession {
   constructor(prefix: string, gatewayUrl: string) {
     this.prefix = prefix;
     this.gatewayUrl = gatewayUrl.replace(/\/ws\/?$/i, ""); // base for /term/
-    this.term = new Terminal({
-      fontFamily: TERM_FONT_FAMILY,
-      fontSize: TERM_FONT_SIZE,
-      theme: this.#resolvedTheme(),
-      allowTransparency: true,
-      cursorBlink: true,
-      allowProposedApi: true,
-      scrollback: 2000,
-    });
-    // Shift+drag select → clipboard once on mouse release (xterm core has no
-    // copy-on-selection option), with a small toast reporting the outcome.
+    // Kick off the WASM load; attach() awaits it before creating the term.
+    void ghosttyInit();
+    // Shift+drag select → clipboard once on mouse release (no built-in
+    // copy-on-selection), with a small toast reporting the outcome.
     // navigator.clipboard only exists in secure contexts (https/localhost);
     // on http:// LAN access, fall back to the legacy execCommand path, which
     // works inside a user gesture.
     this.#copyOnMouseUp = () => {
-      const sel = this.term.getSelection();
+      const sel = this.term?.getSelection();
       if (!sel) return;
       copyTextToClipboard(sel)
         .then(() => showCopiedToast(true, ""))
@@ -118,48 +119,32 @@ export class TerminalSession {
     document.addEventListener("mouseup", this.#copyOnMouseUp);
     // Appearance (theme preset / terminal background image) applies live.
     appearance.subscribe(() => this.#applyAppearance());
-    this.fitAddon = new FitAddon();
-    this.term.loadAddon(this.fitAddon);
-    this.term.onData((data) => this.#onData(data));
   }
 
   /** Attach the terminal to a DOM element and open the stream. `deferred`
    *  (restored-from-layout windows): render the terminal but stay
-   *  disconnected — status lands on "ended", whose mask reconnects. */
-  attach(el: HTMLElement, deferred = false) {
+   *  disconnected — status lands on "ended", whose mask reconnects.
+   *  SPIKE: the term is created here (WASM init is async); ghostty-web's
+   *  canvas renderer makes the webgl/unicode/image addons unnecessary —
+   *  kitty graphics render natively. */
+  async attach(el: HTMLElement, deferred = false) {
     if (this.attached) return;
     this.attached = true;
+    await ghosttyInit();
+    if (!this.term) {
+      this.term = new Terminal({
+        fontFamily: TERM_FONT_FAMILY,
+        fontSize: TERM_FONT_SIZE,
+        theme: this.#resolvedTheme(),
+        allowTransparency: true,
+        cursorBlink: true,
+        scrollback: 2000,
+      });
+      this.fitAddon = new FitAddon();
+      this.term.loadAddon(this.fitAddon);
+      this.term.onData((data: string) => this.#onData(data));
+    }
     this.term.open(el);
-    try {
-      const webgl = new WebglAddon();
-      webgl.onContextLoss(() => webgl.dispose());
-      this.term.loadAddon(webgl);
-    } catch {
-      // WebGL unavailable — the DOM renderer still works.
-    }
-    // Grapheme clustering so emoji (ZWJ sequences, skin tones) measure as
-    // one double-width cell instead of broken halves.
-    try {
-      this.term.loadAddon(new UnicodeGraphemesAddon());
-    } catch {
-      /* fall back to xterm's default width tables */
-    }
-    // Inline images: SIXEL / iTerm IIP render via addon-image 0.9.0. Kitty
-    // graphics support exists only in the unreleased 0.10 beta line (needs
-    // xterm.js 6.x) — until that goes stable, kitty sequences from programs
-    // are parsed by herdr-core's VT model and simply not shown here.
-    try {
-      this.term.loadAddon(new ImageAddon());
-    } catch (e) {
-      console.warn("image addon unavailable:", e);
-    }
-    // FitAddon subtracts the viewport scrollbar width from the available
-    // columns. xterm measures it as `offsetWidth − innerWidth || 15`, so a
-    // CSS-hidden scrollbar (app.css) still yields the 15px fallback and
-    // eats a column. The bar is gone visually — force the reserved width
-    // to 0 as well, or the last column stays background-only.
-    const core = (this.term as any)._core;
-    if (core?.viewport) core.viewport.scrollBarWidth = 0;
     this.fit();
     if (deferred) {
       this.set_status("ended"); // shows the click-to-reconnect mask
@@ -203,7 +188,7 @@ export class TerminalSession {
 
   /** Fit the terminal to its container; notifies the gateway on change. */
   fit() {
-    if (!this.attached) return;
+    if (!this.attached || !this.term) return;
     try {
       this.fitAddon.fit();
     } catch {
@@ -230,8 +215,9 @@ export class TerminalSession {
     this.#sendInput(data);
   }
 
-  /** Resolve the xterm theme from the appearance settings: the preset colors,
-   *  with a transparent background when a terminal background image is set. */
+  /** Resolve the ghostty theme from the appearance settings: the preset
+   *  colors, with a transparent background when a terminal background image
+   *  is set. */
   #resolvedTheme() {
     const a = getAppearance();
     const preset = TERM_PRESETS[a.theme] ?? TERM_PRESETS["tokyo-night"];
@@ -241,7 +227,7 @@ export class TerminalSession {
   }
 
   #applyAppearance() {
-    this.term.options.theme = this.#resolvedTheme();
+    if (this.term) this.term.options.theme = this.#resolvedTheme();
   }
 
   /** Scroll the pane via PageUp/PageDown (reaches the running app). */
@@ -265,7 +251,7 @@ export class TerminalSession {
       this.ws.close();
       this.ws = null;
     }
-    this.term.dispose();
+    this.term?.dispose();
   }
 
   /** Re-open the terminal stream after a disconnect (fresh attach). */
