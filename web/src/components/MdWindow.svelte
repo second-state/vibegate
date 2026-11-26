@@ -162,7 +162,9 @@
       </button>
     </div>
 
-    <div class="min-h-0 flex-1 overflow-auto bg-[#101018]">
+    <!-- select-text: the app root is select-none for canvas gestures, but
+         markdown content is meant to be selectable/copyable. -->
+    <div class="min-h-0 flex-1 select-text overflow-auto bg-[#101018]">
       {#if error}
         <p class="p-4 text-xs text-red-400">{error}</p>
       {:else if !loaded}
