@@ -10,6 +10,7 @@
 
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
+import { ImageAddon } from "@xterm/addon-image";
 import { WebglAddon } from "@xterm/addon-webgl";
 import { UnicodeGraphemesAddon } from "@xterm/addon-unicode-graphemes";
 import { get, writable, type Writable } from "svelte/store";
@@ -137,13 +138,20 @@ export class TerminalSession {
       // WebGL unavailable — the DOM renderer still works.
     }
     // Grapheme clustering so emoji (ZWJ sequences, skin tones) measure as
-    // one double-width cell instead of broken halves. (Kitty images: the
-    // herdr attach path does not deliver image data at all, so no image
-    // addon for now.)
+    // one double-width cell instead of broken halves.
     try {
       this.term.loadAddon(new UnicodeGraphemesAddon());
     } catch {
       /* fall back to xterm's default width tables */
+    }
+    // Inline images: SIXEL / iTerm IIP render via addon-image 0.9.0. Kitty
+    // graphics support exists only in the unreleased 0.10 beta line (needs
+    // xterm.js 6.x) — until that goes stable, kitty sequences from programs
+    // are parsed by herdr-core's VT model and simply not shown here.
+    try {
+      this.term.loadAddon(new ImageAddon());
+    } catch (e) {
+      console.warn("image addon unavailable:", e);
     }
     // FitAddon subtracts the viewport scrollbar width from the available
     // columns. xterm measures it as `offsetWidth − innerWidth || 15`, so a
