@@ -152,7 +152,7 @@
         showSettings = false;
       }}
     >
-      {$t("files")}
+      {$canvasOnly ? $t("files") + "(f)" : $t("files")}
     </button>
     <button
       class="rounded-md {$drawerOpen
@@ -164,7 +164,7 @@
         showSettings = false;
       }}
     >
-      {$t("sessions")}
+      {$canvasOnly ? $t("sessions") + "(e)" : $t("sessions")}
     </button>
   </div>
 
