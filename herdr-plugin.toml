@@ -1,26 +1,26 @@
-id = "vibegate"
-name = "Vibegate"
+id = "vibefleet"
+name = "Vibefleet"
 version = "0.1.2"
 min_herdr_version = "0.7.5"
 description = "Open herdr agent panes on a browser canvas. Runs a single-binary web gateway (run -d / stop / status) that streams terminals, files and markdown to any phone or desktop — a mobile-friendly sshx alternative."
 platforms = ["linux", "macos"]
 
-# No [[build]]: installing vibegate is guided from inside the pane by
+# No [[build]]: installing vibefleet is guided from inside the pane by
 # try-run.sh (arrow-key menu: local checkout or GitHub release).
 
 # The only action: open a full-coverage pane running try-run.sh (installs
-# vibegate if missing, then shows the herdr-tui dashboard).
+# vibefleet if missing, then shows the herdr-tui dashboard).
 [[actions]]
 id = "open"
-title = "Open vibegate"
+title = "Open vibefleet"
 contexts = ["workspace", "global"]
-command = ["herdr", "plugin", "pane", "open", "--plugin", "vibegate", "--entrypoint", "tui", "--placement", "zoomed", "--focus"]
+command = ["herdr", "plugin", "pane", "open", "--plugin", "vibefleet", "--entrypoint", "tui", "--placement", "zoomed", "--focus"]
 
 # Full-coverage pane (zoomed = fills the workspace). try-run.sh installs
-# vibegate on first use and then execs `vibegate herdr-tui`; the pane closes
+# vibefleet on first use and then execs `vibefleet herdr-tui`; the pane closes
 # when the TUI exits.
 [[panes]]
 id = "tui"
-title = "Vibegate"
+title = "Vibefleet"
 placement = "zoomed"
 command = ["bash", "try-run.sh"]

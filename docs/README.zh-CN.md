@@ -1,4 +1,4 @@
-# vibegate
+# vibefleet
 
 单二进制的 Web 网关,把 [herdr](https://github.com/herdrdev/herdr) 管理的终端会话
 暴露成无限画布 UI——sshx 的移动端友好替代品。终端、图片、Markdown(含 mermaid
@@ -18,13 +18,13 @@
 
 ```bash
 ./build-release.sh            # 把 web/dist 内嵌进二进制
-./target/release/vibegate run # 前台运行;Ctrl-C 停止
+./target/release/vibefleet run # 前台运行;Ctrl-C 停止
 ```
 
 打开 `http://localhost:8480`。要给局域网(比如手机)用:
 
 ```bash
-vibegate run --bind 0.0.0.0:8480
+vibefleet run --bind 0.0.0.0:8480
 ```
 
 ### 安装 / 更新
@@ -32,8 +32,8 @@ vibegate run --bind 0.0.0.0:8480
 复制粘贴即可安装(和 rustup / oh-my-zsh 一个路数):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/second-state/vibegate/main/install.sh | bash
-vibegate update               # 自更新
+curl -fsSL https://raw.githubusercontent.com/second-state/vibefleet/main/install.sh | bash
+vibefleet update               # 自更新
 ```
 
 或者克隆仓库后在本地跑脚本:
@@ -42,17 +42,17 @@ vibegate update               # 自更新
 ./install.sh                  # 从 GitHub Releases 装最新版到 ~/.cargo/bin
 ```
 
-发布仓库默认是 `second-state/vibegate`,托管在别处的话改 `install.sh` 的
+发布仓库默认是 `second-state/vibefleet`,托管在别处的话改 `install.sh` 的
 `REPO` 和 `src/update.rs` 里的 `REPO` 常量。
 
 ## 命令行
 
 ```
-vibegate run [-d] [--bind ADDR] [--file-root DIR]... [--web-dir DIR]
-vibegate stop   [--bind URL]
-vibegate status [--bind URL]
-vibegate update [TAG]
-vibegate list
+vibefleet run [-d] [--bind ADDR] [--file-root DIR]... [--web-dir DIR]
+vibefleet stop   [--bind URL]
+vibefleet status [--bind URL]
+vibefleet update [TAG]
+vibefleet list
 ```
 
 | 命令 | 作用 |
@@ -71,19 +71,19 @@ vibegate list
 - `--file-root DIR` — 文件 API 允许访问的目录;可重复,默认 `$HOME`
 - `--herdr-socket PATH` — herdr socket 覆盖
 
-环境变量:`VIBEGATE_BIND`、`VIBEGATE_HERDR_SOCKET`、`VIBEGATE_LOG_FILE`
+环境变量:`VIBEFLEET_BIND`、`VIBEFLEET_HERDR_SOCKET`、`VIBEFLEET_LOG_FILE`
 (守护进程日志位置)、`RUST_LOG`(日志级别,默认 `info`)。
 
 ## 守护进程
 
 ```bash
-vibegate run -d --bind 0.0.0.0:8480   # 后台启动,立即拿回终端
-vibegate status                       # vibegate 0.1.0 — running
-vibegate stop                         # 优雅关停
+vibefleet run -d --bind 0.0.0.0:8480   # 后台启动,立即拿回终端
+vibefleet status                       # vibefleet 0.1.0 — running
+vibefleet stop                         # 优雅关停
 ```
 
-守护进程日志写入 `~/.vibegate/logs/`——当前文件为
-`vibegate_rCURRENT.log`,10MB 轮转、保留 5 天(可用 `VIBEGATE_LOG_FILE`
+守护进程日志写入 `~/.vibefleet/logs/`——当前文件为
+`vibefleet_rCURRENT.log`,10MB 轮转、保留 5 天(可用 `VIBEFLEET_LOG_FILE`
 覆盖)。重复 `run -d` 会报已运行的版本,不会双开。前台 `run` 保留给
 systemd 这类 supervisor。
 
@@ -92,11 +92,11 @@ systemd 这类 supervisor。
 仓库自带插件清单(`herdr-plugin.toml`),把 checkout 链接进 herdr:
 
 ```bash
-herdr plugin link /path/to/vibegate
+herdr plugin link /path/to/vibefleet
 ```
 
-herdr 菜单里会多一个动作——**Open vibegate**——打开一个全屏 pane 跑
-`try-run.sh`:首次使用会安装 vibegate(方向键菜单:本地 checkout 或
+herdr 菜单里会多一个动作——**Open vibefleet**——打开一个全屏 pane 跑
+`try-run.sh`:首次使用会安装 vibefleet(方向键菜单:本地 checkout 或
 GitHub release),然后进入 `tui` 仪表盘(网关状态、日志尾部、启停控制)。
 关闭 pane 即退出 TUI。
 
@@ -132,7 +132,7 @@ GitHub release),然后进入 `tui` 仪表盘(网关状态、日志尾部、启�
 | `/api/file?path=` | GET | 下载文件(流式) |
 | `/api/file?path=` | PUT | 上传——不限大小,`X-Upload-Token` / `X-Upload-Total` 断点续传 |
 | `/api/upload/status?path=&token=` | GET | 查询断点已收字节数 |
-| `/api/status` | GET | `{"name":"vibegate","version":"…"}` 存活探测 |
+| `/api/status` | GET | `{"name":"vibefleet","version":"…"}` 存活探测 |
 | `/api/shutdown` | POST | 优雅退出——**仅限本机来源** |
 
-手动关停请用 `vibegate stop`,不要直接打 `/api/shutdown`。
+手动关停请用 `vibefleet stop`,不要直接打 `/api/shutdown`。

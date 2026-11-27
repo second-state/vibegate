@@ -105,10 +105,10 @@ enum Backend {
 
 /// Web gateway for herdr terminal sessions.
 #[derive(Parser, Debug)]
-#[command(name = "vibegate", version, about)]
+#[command(name = "vibefleet", version, about)]
 struct Cli {
     /// herdr socket path (default ~/.config/herdr/herdr.sock)
-    #[arg(long, global = true, env = "VIBEGATE_HERDR_SOCKET")]
+    #[arg(long, global = true, env = "VIBEFLEET_HERDR_SOCKET")]
     herdr_socket: Option<PathBuf>,
 
     /// run: session backend (herdr socket or herdr-core `hc`)
@@ -116,7 +116,7 @@ struct Cli {
         long,
         global = true,
         value_enum,
-        env = "VIBEGATE_BACKEND",
+        env = "VIBEFLEET_BACKEND",
         default_value = "herdr"
     )]
     backend: Backend,
@@ -126,7 +126,7 @@ struct Cli {
     #[arg(
         long,
         global = true,
-        env = "VIBEGATE_BIND",
+        env = "VIBEFLEET_BIND",
         default_value = "127.0.0.1:8480"
     )]
     bind: String,
@@ -141,10 +141,10 @@ enum Commands {
     List,
     /// Run the gateway: WebSocket streaming + file API + static web.
     #[command(after_help = "EXAMPLES:
-  vibegate run                                          # 127.0.0.1:8480, embedded web, file root = $HOME
-  vibegate run --bind 0.0.0.0:8480                      # LAN — phone opens http://<this-ip>:8480
-  vibegate run --file-root ~/workspace --file-root /tmp # restrict the file API to given roots
-  vibegate --herdr-socket /tmp/herdr.sock run           # custom herdr socket")]
+  vibefleet run                                          # 127.0.0.1:8480, embedded web, file root = $HOME
+  vibefleet run --bind 0.0.0.0:8480                      # LAN — phone opens http://<this-ip>:8480
+  vibefleet run --file-root ~/workspace --file-root /tmp # restrict the file API to given roots
+  vibefleet --herdr-socket /tmp/herdr.sock run           # custom herdr socket")]
     Run {
         /// Spawn a detached daemon and return immediately.
         #[arg(short = 'd', long = "detach")]
@@ -226,11 +226,11 @@ async fn main() -> Result<()> {
     }
 }
 
-/// Foreground runs log to stdio; the detached daemon (VIBEGATE_LOG_FILE set
+/// Foreground runs log to stdio; the detached daemon (VIBEFLEET_LOG_FILE set
 /// by the launcher) logs to file with vibetty-style rotation: append, 10MB
 /// per file, keep 5 days. RUST_LOG filters both paths.
 fn init_logger() -> Option<flexi_logger::LoggerHandle> {
-    match std::env::var("VIBEGATE_LOG_FILE") {
+    match std::env::var("VIBEFLEET_LOG_FILE") {
         Ok(path) if !path.is_empty() => {
             let path = std::path::PathBuf::from(path);
             let dir = path
@@ -241,7 +241,7 @@ fn init_logger() -> Option<flexi_logger::LoggerHandle> {
             let basename = path
                 .file_stem()
                 .map(|s| s.to_string_lossy().to_string())
-                .unwrap_or_else(|| "vibegate".into());
+                .unwrap_or_else(|| "vibefleet".into());
             use flexi_logger::{Cleanup, Criterion, FileSpec, Logger, Naming, WriteMode};
             Some(
                 Logger::try_with_env_or_str("info")
@@ -278,7 +278,7 @@ fn init_logger() -> Option<flexi_logger::LoggerHandle> {
 
 /// Launcher for `run -d`: refuse double-starts (probe /api/status first),
 /// then exec ourselves detached with stdio into the log file. The child runs
-/// the same foreground `run`; only VIBEGATE_LOG_FILE tells it to log to file.
+/// the same foreground `run`; only VIBEFLEET_LOG_FILE tells it to log to file.
 async fn spawn_detached(
     bind: &str,
     backend: Backend,
@@ -296,22 +296,22 @@ async fn spawn_detached(
             .ok()
             .and_then(|v| v["version"].as_str().map(String::from))
             .unwrap_or_else(|| env!("CARGO_PKG_VERSION").to_string());
-        println!("vibegate {version} is already running on {bind}");
+        println!("vibefleet {version} is already running on {bind}");
         return Ok(());
     }
 
     let exe = std::env::current_exe().context("locate current executable")?;
-    // An explicit VIBEGATE_LOG_FILE from the caller wins; default otherwise.
-    let log_path = match std::env::var("VIBEGATE_LOG_FILE") {
+    // An explicit VIBEFLEET_LOG_FILE from the caller wins; default otherwise.
+    let log_path = match std::env::var("VIBEFLEET_LOG_FILE") {
         Ok(p) if !p.is_empty() => PathBuf::from(p),
         _ => std::env::var("HOME")
             .map(|h| {
                 PathBuf::from(h)
-                    .join(".vibegate")
+                    .join(".vibefleet")
                     .join("logs")
-                    .join("vibegate.log")
+                    .join("vibefleet.log")
             })
-            .unwrap_or_else(|_| PathBuf::from("vibegate.log")),
+            .unwrap_or_else(|_| PathBuf::from("vibefleet.log")),
     };
     if let Some(dir) = log_path.parent() {
         std::fs::create_dir_all(dir).ok();
@@ -328,7 +328,7 @@ async fn spawn_detached(
     cmd.arg("run")
         .arg("--bind")
         .arg(bind)
-        .env("VIBEGATE_LOG_FILE", &log_path)
+        .env("VIBEFLEET_LOG_FILE", &log_path)
         .stdin(std::process::Stdio::null())
         .stdout(std::process::Stdio::from(log))
         .stderr(std::process::Stdio::from(err))
@@ -347,7 +347,7 @@ async fn spawn_detached(
     }
     cmd.spawn().context("spawn detached daemon")?;
     println!(
-        "vibegate started in background on {bind} (log: {})",
+        "vibefleet started in background on {bind} (log: {})",
         log_path.display()
     );
     Ok(())
@@ -389,7 +389,7 @@ async fn raw_http(base: &str, request: &str) -> Result<String> {
 async fn stop_gateway(base: &str) -> Result<()> {
     let buf = raw_http(base, "POST /api/shutdown HTTP/1.1\r\nContent-Length: 0\r\n").await?;
     if buf.starts_with("HTTP/1.1 200") || buf.starts_with("HTTP/1.0 200") {
-        println!("vibegate stopped");
+        println!("vibefleet stopped");
     } else if buf.contains(" 403") {
         anyhow::bail!("shutdown rejected — only allowed from localhost");
     } else {
@@ -414,7 +414,7 @@ async fn status_gateway(base: &str) -> Result<()> {
         println!("{name} {version} — running");
     } else {
         println!("{name} — running {version}, this binary is {mine}");
-        println!("consider `vibegate stop` + start to switch versions");
+        println!("consider `vibefleet stop` + start to switch versions");
     }
     Ok(())
 }
@@ -665,7 +665,7 @@ async fn run(
     }
 
     let listener = tokio::net::TcpListener::bind(&bind).await?;
-    tracing::info!("vibegate listening on http://{bind}");
+    tracing::info!("vibefleet listening on http://{bind}");
     axum::serve(
         listener,
         app.into_make_service_with_connect_info::<SocketAddr>(),

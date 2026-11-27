@@ -21,7 +21,7 @@ pub struct Herdr {
     socket: PathBuf,
 }
 
-/// One pane from `session.snapshot`, narrowed to what vibegate needs.
+/// One pane from `session.snapshot`, narrowed to what vibefleet needs.
 #[derive(Debug, Clone)]
 pub struct PaneInfo {
     pub pane_id: String,
@@ -55,7 +55,7 @@ impl Herdr {
         let stream = UnixStream::connect(&self.socket)
             .await
             .with_context(|| format!("connecting to herdr socket {}", self.socket.display()))?;
-        let id = format!("vibegate-{}", REQ_ID.fetch_add(1, Ordering::Relaxed));
+        let id = format!("vibefleet-{}", REQ_ID.fetch_add(1, Ordering::Relaxed));
         let req = json!({"id": id, "method": method, "params": params});
         let (rd, mut wr) = stream.into_split();
         wr.write_all(serde_json::to_string(&req)?.as_bytes())

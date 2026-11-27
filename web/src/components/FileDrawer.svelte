@@ -58,11 +58,11 @@
 
   let path = ""; // "" = gateway file root
   let entries: Entry[] = [];
-  let showHidden = localStorage.getItem("vibeview.showHidden") === "1";
+  let showHidden = localStorage.getItem("vibefleet.showHidden") === "1";
   function setHidden(v: boolean) {
     showHidden = v;
     try {
-      localStorage.setItem("vibeview.showHidden", v ? "1" : "0");
+      localStorage.setItem("vibefleet.showHidden", v ? "1" : "0");
     } catch {
       /* private mode */
     }
@@ -211,7 +211,7 @@
 
   /** Stable token per target path, so interrupted uploads stay resumable
    *  across retries and even page reloads. */
-  const TOKEN_KEY = "vibeview.uploadTokens";
+  const TOKEN_KEY = "vibefleet.uploadTokens";
   /** randomUUID needs a secure context; getRandomValues works everywhere. */
   function randomToken(): string {
     const b = new Uint8Array(8);

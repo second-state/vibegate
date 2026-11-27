@@ -1,4 +1,4 @@
-# vibeview
+# vibefleet
 
 vibetty 终端会话的 **MQTT Web 查看端**——一个移动优先的"无限画布"终端查看器。浏览器通过
 MQTT-over-WebSocket 连上 broker,自动发现所有在线的 vibetty 实例,以多终端窗口画布的方式
@@ -7,7 +7,7 @@ MQTT-over-WebSocket 连上 broker,自动发现所有在线的 vibetty 实例,以
 ```
                      MQTT broker (rumqttd / mosquitto / EMQX)
                         │  TCP 1883            │  WS :9001 (/mqtt)
-        vibetty ◄───────┘                      └──────► vibeview (浏览器)
+        vibetty ◄───────┘                      └──────► vibefleet (浏览器)
        (发布终端)                                     多窗口画布 · 键盘输入
           ▲
           └──── vibekeys 设备也能订同一批会话
@@ -53,7 +53,7 @@ wss://<host>:9002/mqtt    # TLS(https 页面必须,否则 mixed content 被浏�
   `[mqtt] builtin_ws_port` 决定(默认 0 = 不开)
 - 账号密码可选(与 broker 配置一致);`user` 段 = broker 用户名(未填则 `root`)
 
-也可用 URL 参数直接带地址:`https://<host>/vibeview/?broker=wss://broker:9002/mqtt`
+也可用 URL 参数直接带地址:`https://<host>/vibefleet/?broker=wss://broker:9002/mqtt`
 
 ## 部署
 

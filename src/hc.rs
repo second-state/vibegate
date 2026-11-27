@@ -116,7 +116,7 @@ fn current_uid() -> Option<String> {
     None
 }
 
-/// One terminal, narrowed to what vibegate's session list needs.
+/// One terminal, narrowed to what vibefleet's session list needs.
 #[derive(Debug, Clone)]
 pub struct HcTerminal {
     /// Core address: `t7` locally, `machine/t7` for remote machines.
@@ -132,13 +132,13 @@ pub struct HcTerminal {
     pub agent_status: Option<String>,
     /// Foreground process cwd (core re-reads /proc ~2x/s), else spawn cwd.
     pub cwd: String,
-    /// vibegate's workspace grouping rides on the `workspace` label
+    /// vibefleet's workspace grouping rides on the `workspace` label
     /// (labels are free-form key=value managed by clients).
     pub workspace: String,
     pub labels: BTreeMap<String, String>,
 }
 
-/// The subset of core events vibegate cares about.
+/// The subset of core events vibefleet cares about.
 #[derive(Debug, Clone)]
 pub enum HcEvent {
     /// Full reset: subscribe snapshot or a `missed` notification.

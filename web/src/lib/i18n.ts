@@ -6,7 +6,7 @@
 import { derived, get, writable, type Writable } from "svelte/store";
 
 export type Lang = "zh" | "en";
-const KEY = "vibeview.lang";
+const KEY = "vibefleet.lang";
 
 function initial(): Lang {
   try {
@@ -39,8 +39,8 @@ const zh = {
   stateReconnecting: "重连中…",
   stateError: "错误",
   badgeTitle: "状态:{state} · 点击配置连接",
-  gatewayUrl: "vibegate 网关地址",
-  gatewayHint: "即 vibegate 服务端的 /ws 地址;https 页面请用 wss://。",
+  gatewayUrl: "vibefleet 网关地址",
+  gatewayHint: "即 vibefleet 服务端的 /ws 地址;https 页面请用 wss://。",
   mixedContent:
     "当前页面是 https,浏览器会拦截 ws:// 明文连接——请改用 wss://,或把本页部署在 http 下",
   connect: "连接",
@@ -90,7 +90,7 @@ const zh = {
   // Canvas
   canvasEmpty: "画布是空的",
   canvasEmptyConnect: "点右上角「会话」打开一个终端窗口",
-  canvasEmptyOffline: "先在顶部连接 vibegate 网关",
+  canvasEmptyOffline: "先在顶部连接 vibefleet 网关",
   canvasHint: "拖动空白平移 · 双指/滚轮缩放 · 双击窗口居中",
 
   // SessionDrawer
@@ -155,8 +155,8 @@ const en: Record<MsgKey, string> = {
   stateReconnecting: "Reconnecting…",
   stateError: "Error",
   badgeTitle: "State: {state} · click to configure",
-  gatewayUrl: "vibegate gateway URL",
-  gatewayHint: "The /ws endpoint of your vibegate server; use wss:// on https pages.",
+  gatewayUrl: "vibefleet gateway URL",
+  gatewayHint: "The /ws endpoint of your vibefleet server; use wss:// on https pages.",
   mixedContent:
     "This page is https, the browser will block plaintext ws:// — switch to wss:// or serve this page over http.",
   connect: "Connect",
@@ -207,7 +207,7 @@ const en: Record<MsgKey, string> = {
   // Canvas
   canvasEmpty: "The canvas is empty",
   canvasEmptyConnect: 'Open a terminal window from "Sessions" (top right)',
-  canvasEmptyOffline: "Connect to the vibegate gateway first (top bar)",
+  canvasEmptyOffline: "Connect to the vibefleet gateway first (top bar)",
   canvasHint: "Drag to pan · pinch/scroll to zoom · double-click a window to center",
 
   // SessionDrawer

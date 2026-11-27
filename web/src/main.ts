@@ -26,7 +26,7 @@ const app = mount(App, {
 });
 
 // Debug handle for console/eval-driven testing.
-(window as any).__vibeview = {
+(window as any).__vibefleet = {
   connection,
   sessions,
   windows,

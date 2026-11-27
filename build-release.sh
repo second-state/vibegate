@@ -21,12 +21,12 @@ fi
 echo "==> building release binary${TARGET:+ for $TARGET}"
 if [ -n "$TARGET" ]; then
   cargo build --release --target "$TARGET"
-  BIN="target/$TARGET/release/vibegate"
+  BIN="target/$TARGET/release/vibefleet"
 else
   cargo build --release
-  BIN="target/release/vibegate"
+  BIN="target/release/vibefleet"
 fi
-# Windows targets produce vibegate.exe
+# Windows targets produce vibefleet.exe
 if [ -f "$BIN.exe" ]; then
   BIN="$BIN.exe"
 fi

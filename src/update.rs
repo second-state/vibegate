@@ -1,21 +1,21 @@
-//! `vibegate update` —— 自更新子命令。
+//! `vibefleet update` —— 自更新子命令。
 //!
 //! 行为与 `install.sh` 一致:从 GitHub Releases 下载对应平台的预编译二进制,
-//! 装成 `vibegate-<版本>`,再把 `vibegate` 软链切过去。升级不覆盖正在运行的
+//! 装成 `vibefleet-<版本>`,再把 `vibefleet` 软链切过去。升级不覆盖正在运行的
 //! 二进制;同版本 + 软链完好时提示并退出。
 //!
 //! 下载用外部 curl(复用系统 TLS,不引 reqwest);旧版本清理的交互提示只在
-//! 有终端时出现,`VIBEGATE_NONINTERACTIVE=1` 或无 tty 时走安全默认(保留)。
+//! 有终端时出现,`VIBEFLEET_NONINTERACTIVE=1` 或无 tty 时走安全默认(保留)。
 
 use std::io::IsTerminal;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
 /// Release repo for downloads: CI builds embed the real GITHUB_REPOSITORY
-/// via VIBEGATE_REPO (see release.yml); local builds fall back to the default.
-const REPO: &str = match option_env!("VIBEGATE_REPO") {
+/// via VIBEFLEET_REPO (see release.yml); local builds fall back to the default.
+const REPO: &str = match option_env!("VIBEFLEET_REPO") {
     Some(r) => r,
-    None => "second-state/vibegate",
+    None => "second-state/vibefleet",
 };
 
 /// 检测 (资产名, 安装文件名)。与 install.sh / release.yml 的命名一致。
@@ -23,9 +23,9 @@ fn detect() -> Result<(String, String), String> {
     let os = std::env::consts::OS;
     let arch = std::env::consts::ARCH;
     match (os, arch) {
-        ("linux", "x86_64") => Ok(("vibegate-linux-x64".into(), "vibegate".into())),
-        ("linux", "aarch64") => Ok(("vibegate-linux-arm64".into(), "vibegate".into())),
-        ("macos", "aarch64") => Ok(("vibegate-macos-arm64".into(), "vibegate".into())),
+        ("linux", "x86_64") => Ok(("vibefleet-linux-x64".into(), "vibefleet".into())),
+        ("linux", "aarch64") => Ok(("vibefleet-linux-arm64".into(), "vibefleet".into())),
+        ("macos", "aarch64") => Ok(("vibefleet-macos-arm64".into(), "vibefleet".into())),
         (os, arch) => Err(format!(
             "no prebuilt binary for {os}/{arch} — check https://github.com/{REPO}/releases"
         )),
@@ -47,7 +47,8 @@ fn install_dir() -> PathBuf {
 }
 
 fn is_interactive() -> bool {
-    std::io::stdin().is_terminal() && std::env::var("VIBEGATE_NONINTERACTIVE").as_deref() != Ok("1")
+    std::io::stdin().is_terminal()
+        && std::env::var("VIBEFLEET_NONINTERACTIVE").as_deref() != Ok("1")
 }
 
 fn curl_download(url: &str, dest: &Path) -> Result<(), String> {
@@ -64,7 +65,7 @@ fn curl_download(url: &str, dest: &Path) -> Result<(), String> {
     }
 }
 
-/// 从文件读版本(--version 输出如 "vibegate 0.1.0")。
+/// 从文件读版本(--version 输出如 "vibefleet 0.1.0")。
 fn version_of(exe: &Path) -> Option<String> {
     let out = Command::new(exe).arg("--version").output().ok()?;
     String::from_utf8_lossy(&out.stdout)
@@ -81,7 +82,7 @@ fn ask_delete_old() -> bool {
     std::io::stdin().read_line(&mut ans).is_ok() && ans.trim().starts_with(['y', 'Y'])
 }
 
-/// 入口:`vibegate update [TAG]`。TAG 缺省 = latest(不含 prerelease)。
+/// 入口:`vibefleet update [TAG]`。TAG 缺省 = latest(不含 prerelease)。
 pub async fn run(tag: Option<String>) -> Result<(), String> {
     let (asset, name) = detect()?;
     let tag = tag.unwrap_or_else(|| "latest".to_string());
@@ -94,7 +95,7 @@ pub async fn run(tag: Option<String>) -> Result<(), String> {
     };
 
     std::fs::create_dir_all(&install_dir).map_err(|e| e.to_string())?;
-    let staging = install_dir.join(format!(".vibegate.update.{}", std::process::id()));
+    let staging = install_dir.join(format!(".vibefleet.update.{}", std::process::id()));
 
     println!("Downloading {url}");
     curl_download(&url, &staging)?;
@@ -120,7 +121,7 @@ pub async fn run(tag: Option<String>) -> Result<(), String> {
         if versioned.exists() && std::fs::read_link(&link).is_ok_and(|l| l == versioned) {
             let _ = std::fs::remove_file(&staging);
             println!(
-                "vibegate {binver} is already installed at {} — up to date",
+                "vibefleet {binver} is already installed at {} — up to date",
                 versioned.display()
             );
             return Ok(());
@@ -143,7 +144,7 @@ pub async fn run(tag: Option<String>) -> Result<(), String> {
         if target.exists() && version_of(&target).as_deref() == Some(binver.as_str()) {
             let _ = std::fs::remove_file(&staging);
             println!(
-                "vibegate {binver} is already installed at {} — up to date",
+                "vibefleet {binver} is already installed at {} — up to date",
                 target.display()
             );
             return Ok(());
@@ -160,7 +161,7 @@ pub async fn run(tag: Option<String>) -> Result<(), String> {
         println!("Installed: {} ({binver})", target.display());
     }
 
-    // --- 旧版本清理:列出 vibegate-<数字>* 历史版本,交互时询问(默认 N)。 ---
+    // --- 旧版本清理:列出 vibefleet-<数字>* 历史版本,交互时询问(默认 N)。 ---
     let prefix = format!("{name}-");
     #[cfg(unix)]
     let installed_file = install_dir.join(format!("{name}-{binver}"));
@@ -205,7 +206,7 @@ pub async fn run(tag: Option<String>) -> Result<(), String> {
     }
 
     // --- 升级的是常驻守护进程的话,提示重启。 ---
-    println!("if a daemon is still running the old version: vibegate stop && vibegate run -d");
+    println!("if a daemon is still running the old version: vibefleet stop && vibefleet run -d");
 
     Ok(())
 }

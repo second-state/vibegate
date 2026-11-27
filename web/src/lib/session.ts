@@ -1,7 +1,7 @@
 /**
- * One terminal window: a raw WebSocket to vibegate's `/term/<sid>`.
+ * One terminal window: a raw WebSocket to vibefleet's `/term/<sid>`.
  *
- * The socket carries pure terminal bytes — vibegate attaches
+ * The socket carries pure terminal bytes — vibefleet attaches
  * `herdr terminal attach` for us and herdr repaints the full screen on
  * connect/resize, so there is no baseline protocol; bytes are simply appended
  * to xterm in order. Input goes back as binary frames; resize is a small
@@ -36,10 +36,10 @@ export type SessionStatus = "connecting" | "live" | "ended" | "error";
 
 /** Small transient toast at the top of the screen. */
 export function showToast(text: string, ok = true) {
-  const old = document.getElementById("vibegate-copied-toast");
+  const old = document.getElementById("vibefleet-copied-toast");
   old?.remove();
   const el = document.createElement("div");
-  el.id = "vibegate-copied-toast";
+  el.id = "vibefleet-copied-toast";
   el.textContent = text;
   el.style.cssText =
     "position:fixed;top:18px;left:50%;transform:translateX(-50%);z-index:9999;" +

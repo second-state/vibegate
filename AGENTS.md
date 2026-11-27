@@ -1,6 +1,6 @@
 # AGENTS.md
 
-vibegate —— herdr 终端会话的 Web 网关:把 herdr 管理的终端会话以画布窗口的形式暴露给浏览器(sshx 的替代品),支持手机/平板触控操作。
+vibefleet —— herdr 终端会话的 Web 网关:把 herdr 管理的终端会话以画布窗口的形式暴露给浏览器(sshx 的替代品),支持手机/平板触控操作。
 
 ## 架构
 
@@ -16,7 +16,7 @@ src/                     Rust 网关
   term.rs    终端会话状态(带宽优化:仅聚焦窗口推送)
   files.rs   /api/files、/api/file(GET/PUT 可断点续传,.vbp sidecar)、
              /api/upload/status、/api/status、/api/shutdown(仅回环)
-  tui.rs     `vibegate tui` 全屏仪表盘(ratatui-kit 组件,探针查 /api/status)
+  tui.rs     `vibefleet tui` 全屏仪表盘(ratatui-kit 组件,探针查 /api/status)
   update.rs  从 GitHub Releases 自更新
 web/                     Svelte 5 + xterm.js 前端(rust-embed 打进 release 二进制)
   src/lib/      canvas.ts(窗口/焦点/抽屉状态)、session.ts(xterm 会话+剪贴板)、
@@ -26,7 +26,7 @@ web/                     Svelte 5 + xterm.js 前端(rust-embed 打进 release �
                 ImageWindow、MdWindow、ConnectBar
 ```
 
-部署形态:herdr 插件 pane 引导 `vibegate run`(herdr-plugin.toml + try-run.sh),浏览器连网关的 8480 端口。install.sh / `update` 子命令走 GitHub Releases(second-state/vibegate)。
+部署形态:herdr 插件 pane 引导 `vibefleet run`(herdr-plugin.toml + try-run.sh),浏览器连网关的 8480 端口。install.sh / `update` 子命令走 GitHub Releases(second-state/vibefleet)。
 
 ## 构建与测试
 

@@ -3,7 +3,7 @@
  *
  * Ported from sshx <https://github.com/ekzhang/sshx> (MIT), which modified it
  * from Dispict <https://github.com/ekzhang/dispict>, loosely based on tldraw.
- * Trimmed for vibeview: no scrollable-container anchoring, fixed a destroy()
+ * Trimmed for vibefleet: no scrollable-container anchoring, fixed a destroy()
  * bug (removeEventListener instead of add).
  */
 

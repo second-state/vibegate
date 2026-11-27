@@ -1,4 +1,4 @@
-//! `vibegate herdr-tui` — fullscreen gateway dashboard for the herdr plugin
+//! `vibefleet herdr-tui` — fullscreen gateway dashboard for the herdr plugin
 //! pane: ratatui-kit runtime (state/events) + plain ratatui rendering.
 
 use crate::{loopback_base, raw_http};
@@ -14,9 +14,9 @@ use ratatui_kit::{
 };
 
 fn log_path() -> String {
-    std::env::var("VIBEGATE_LOG_FILE").unwrap_or_else(|_| {
+    std::env::var("VIBEFLEET_LOG_FILE").unwrap_or_else(|_| {
         format!(
-            "{}/.vibegate/logs/vibegate_rCURRENT.log",
+            "{}/.vibefleet/logs/vibefleet_rCURRENT.log",
             std::env::var("HOME").unwrap_or_default()
         )
     })
@@ -30,7 +30,7 @@ fn start_daemon(addr: String, log: String) {
             // background" and would spray it over the fullscreen TUI.
             let _ = std::process::Command::new(exe)
                 .args(["run", "-d", "--bind", &addr])
-                .env("VIBEGATE_LOG_FILE", log)
+                .env("VIBEFLEET_LOG_FILE", log)
                 .stdin(std::process::Stdio::null())
                 .stdout(std::process::Stdio::null())
                 .stderr(std::process::Stdio::null())
@@ -113,7 +113,7 @@ impl Widget for DashboardWidget {
             Style::new().red()
         };
         let hblock = Block::bordered()
-            .title(Line::from(" vibegate herdr-tui ").cyan().bold())
+            .title(Line::from(" vibefleet herdr-tui ").cyan().bold())
             .border_style(Style::new().cyan());
         let hinner = hblock.inner(chunks[0]);
         hblock.render(chunks[0], buf);
@@ -138,7 +138,7 @@ impl Widget for DashboardWidget {
 
 #[component]
 fn HerdrTui(mut hooks: Hooks) -> impl Into<AnyElement<'static>> {
-    let bind = std::env::var("VIBEGATE_BIND").unwrap_or_else(|_| "http://127.0.0.1:8480".into());
+    let bind = std::env::var("VIBEFLEET_BIND").unwrap_or_else(|_| "http://127.0.0.1:8480".into());
     let addr = bind
         .trim_start_matches("http://")
         .trim_start_matches("https://")
@@ -164,7 +164,7 @@ fn HerdrTui(mut hooks: Hooks) -> impl Into<AnyElement<'static>> {
                         .map(|v| {
                             format!(
                                 "RUNNING  {} v{}",
-                                v["name"].as_str().unwrap_or("vibegate"),
+                                v["name"].as_str().unwrap_or("vibefleet"),
                                 v["version"].as_str().unwrap_or("?")
                             )
                         })

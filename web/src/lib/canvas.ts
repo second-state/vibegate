@@ -23,7 +23,7 @@ export const windows: Writable<Map<string, WindowRect>> = writable(new Map());
  *  disconnected (mask + click to reconnect) instead of auto-attaching. */
 export const restoredKeys = new Set<string>();
 
-const LAYOUT_KEY = "vibeview.layout";
+const LAYOUT_KEY = "vibefleet.layout";
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
 // Dragging fires moveWindow per pointermove — debounce the localStorage
 // write to a trailing tick.

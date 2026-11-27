@@ -1,7 +1,7 @@
 /**
- * vibegate gateway connection: one control WebSocket per page.
+ * vibefleet gateway connection: one control WebSocket per page.
  *
- * Replaces the old MQTT transport. The server (vibegate) pushes the pane list
+ * Replaces the old MQTT transport. The server (vibefleet) pushes the pane list
  * on connect and whenever it changes; terminal bytes flow on separate
  * `/term/<sid>` sockets owned by each TerminalSession.
  */
@@ -35,7 +35,7 @@ export type WorkspaceInfo = {
 
 /**
  * Default gateway URL: same origin as this page (`ws(s)://host/ws`), since
- * vibegate serves the frontend and the WebSocket side by side. An explicit
+ * vibefleet serves the frontend and the WebSocket side by side. An explicit
  * `?gateway=`/`?broker=`/`?url=` query parameter overrides it — useful when
  * the frontend is hosted elsewhere.
  */

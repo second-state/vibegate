@@ -31,7 +31,7 @@ const DEFAULTS: Appearance = {
   keybar: "float",
   chrome: "classic",
 };
-const KEY = "vibeview.appearance";
+const KEY = "vibefleet.appearance";
 
 function load(): Appearance {
   try {

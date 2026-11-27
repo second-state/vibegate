@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# herdr plugin pane entrypoint: if vibegate is installed, run its TUI;
+# herdr plugin pane entrypoint: if vibefleet is installed, run its TUI;
 # otherwise show an install menu (↑/↓ + Enter). Declining exits — the pane
 # closes with the command (plugin pane lifecycle).
 set -u
@@ -9,8 +9,8 @@ case "$0" in
   *) DIR="$PWD" ;;
 esac
 
-if command -v vibegate >/dev/null 2>&1; then
-  exec vibegate tui
+if command -v vibefleet >/dev/null 2>&1; then
+  exec vibefleet tui
 fi
 
 # ── options: [github install] [local install] [cancel] ──
@@ -31,7 +31,7 @@ LINES=$((N + 1)) # header + options
 
 draw() {
   [ "${1:-}" = "redraw" ] && printf "\e[%dA\r\e[J" "$LINES"
-  echo "vibegate is not installed — choose one:"
+  echo "vibefleet is not installed — choose one:"
   local i
   for ((i = 0; i < N; i++)); do
     if [ "$i" -eq "$sel" ]; then
@@ -71,14 +71,14 @@ run_selected() {
   case "${CMDS[sel]}" in
     local)
       echo "── installing (local checkout) ──"
-      VIBEGATE_NONINTERACTIVE=1 VIBEGATE_FALLBACK_BUILD=1 bash "$DIR/install.sh" || {
+      VIBEFLEET_NONINTERACTIVE=1 VIBEFLEET_FALLBACK_BUILD=1 bash "$DIR/install.sh" || {
         fail_wait
         return 1
       }
       ;;
     github)
       echo "── installing (GitHub) ──"
-      curl -fsSL https://raw.githubusercontent.com/second-state/vibegate/main/install.sh | bash || {
+      curl -fsSL https://raw.githubusercontent.com/second-state/vibefleet/main/install.sh | bash || {
         fail_wait
         return 1
       }
@@ -87,14 +87,14 @@ run_selected() {
       exit 0 # Cancel: the pane closes with the process
       ;;
   esac
-  command -v vibegate >/dev/null 2>&1 || {
-    echo "vibegate still not found after install — check your PATH (see install output)"
+  command -v vibefleet >/dev/null 2>&1 || {
+    echo "vibefleet still not found after install — check your PATH (see install output)"
     fail_wait
     return 1
   }
-  echo "── install complete, starting vibegate tui ──"
+  echo "── install complete, starting vibefleet tui ──"
   sleep 1
-  exec vibegate tui
+  exec vibefleet tui
 }
 
 draw

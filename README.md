@@ -1,4 +1,4 @@
-# vibegate
+# vibefleet
 
 A single-binary web gateway that exposes [herdr](https://github.com/herdrdev/herdr)-managed
 terminal sessions through an infinite canvas UI — a mobile-friendly alternative to
@@ -19,20 +19,20 @@ The release binary embeds the entire web frontend: copy it anywhere, run it, don
 
 ```bash
 ./build-release.sh            # bundles web/dist into the binary
-./target/release/vibegate run # foreground; Ctrl-C to stop
+./target/release/vibefleet run # foreground; Ctrl-C to stop
 ```
 
 Open `http://localhost:8480`. To serve your LAN (e.g. a phone):
 
 ```bash
-vibegate run --bind 0.0.0.0:8480
+vibefleet run --bind 0.0.0.0:8480
 ```
 
 ### Install / update
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/second-state/vibegate/main/install.sh | bash
-vibegate update               # self-update from GitHub Releases
+curl -fsSL https://raw.githubusercontent.com/second-state/vibefleet/main/install.sh | bash
+vibefleet update               # self-update from GitHub Releases
 ```
 
 Or clone and run the script locally:
@@ -42,16 +42,16 @@ Or clone and run the script locally:
 ```
 
 Adjust the release repository (`REPO` in `install.sh` / `src/update.rs`) if you
-host vibegate under a different name.
+host vibefleet under a different name.
 
 ## Command line
 
 ```
-vibegate run [-d] [--bind ADDR] [--file-root DIR]... [--web-dir DIR]
-vibegate stop   [--bind URL]
-vibegate status [--bind URL]
-vibegate update [TAG]
-vibegate list
+vibefleet run [-d] [--bind ADDR] [--file-root DIR]... [--web-dir DIR]
+vibefleet stop   [--bind URL]
+vibefleet status [--bind URL]
+vibefleet update [TAG]
+vibefleet list
 ```
 
 | Command | What it does |
@@ -70,34 +70,34 @@ Useful flags and defaults:
 - `--file-root DIR` — directories the file API may touch; repeatable, defaults to `$HOME`
 - `--herdr-socket PATH` — herdr socket override
 
-Environment variables: `VIBEGATE_BIND`, `VIBEGATE_HERDR_SOCKET`,
-`VIBEGATE_LOG_FILE` (daemon log destination), `RUST_LOG` (log filter, default `info`).
+Environment variables: `VIBEFLEET_BIND`, `VIBEFLEET_HERDR_SOCKET`,
+`VIBEFLEET_LOG_FILE` (daemon log destination), `RUST_LOG` (log filter, default `info`).
 
 ## Daemon
 
 ```bash
-vibegate run -d --bind 0.0.0.0:8480   # background + return to your shell
-vibegate status                       # vibegate 0.1.0 — running
-vibegate stop                         # graceful shutdown
+vibefleet run -d --bind 0.0.0.0:8480   # background + return to your shell
+vibefleet status                       # vibefleet 0.1.0 — running
+vibefleet stop                         # graceful shutdown
 ```
 
-The daemon appends logs to `~/.vibegate/logs/` — current file
-`vibegate_rCURRENT.log`, rotated at 10 MB with 5-day retention (set
-`VIBEGATE_LOG_FILE` to override). Starting a second instance is refused with
+The daemon appends logs to `~/.vibefleet/logs/` — current file
+`vibefleet_rCURRENT.log`, rotated at 10 MB with 5-day retention (set
+`VIBEFLEET_LOG_FILE` to override). Starting a second instance is refused with
 the running version. Foreground `run` stays available for systemd-style
 supervisors.
 
 ## herdr plugin
 
-vibegate ships a plugin manifest (`herdr-plugin.toml`). Link a checkout into
+vibefleet ships a plugin manifest (`herdr-plugin.toml`). Link a checkout into
 herdr:
 
 ```bash
-herdr plugin link /path/to/vibegate
+herdr plugin link /path/to/vibefleet
 ```
 
-That adds one action to herdr's menus — **Open vibegate** — which opens a
-full-coverage pane running `try-run.sh`: on first use it installs vibegate
+That adds one action to herdr's menus — **Open vibefleet** — which opens a
+full-coverage pane running `try-run.sh`: on first use it installs vibefleet
 (arrow-key menu: local checkout or GitHub release), then shows the `tui`
 dashboard (gateway status, log tail, start/stop/quit). Closing the pane stops
 the TUI.
@@ -140,7 +140,7 @@ the TUI.
 | `/api/file?path=` | GET | download (streamed) |
 | `/api/file?path=` | PUT | upload — unlimited size, resumable via `X-Upload-Token` / `X-Upload-Total` |
 | `/api/upload/status?path=&token=` | GET | bytes already received for a resumable upload |
-| `/api/status` | GET | `{"name":"vibegate","version":"…"}` liveness probe |
+| `/api/status` | GET | `{"name":"vibefleet","version":"…"}` liveness probe |
 | `/api/shutdown` | POST | graceful exit — **loopback callers only** |
 
-Use `vibegate stop` instead of calling `/api/shutdown` by hand.
+Use `vibefleet stop` instead of calling `/api/shutdown` by hand.
