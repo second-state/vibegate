@@ -110,19 +110,20 @@ body {
   50% { opacity: 0.3; }
 }
 
-/* App surfaces: top header, settings panel, session/files drawers — the
+/* App surfaces: settings panel + session/files drawers (the header styles
+   itself inline — its background follows the terminal opacity slider). The
    same chrome vocabulary at surface level. Glass frosts over the canvas
    behind; cyber tints with the cyan/magenta gradient edge. */
 [data-chrome="glass"][data-surface] {
-  /* Self-visible frost plate: the header sits above the canvas (nothing
-     behind it to blur), so the glass look comes from the white sheen
-     gradient rather than see-through alone. */
+  /* Half-transparent frost plate: the sheen gradient reads as glass even
+     where the backdrop is empty (header over bare background), while the
+     low-alpha base lets blurred windows/canvas show through. */
   background: linear-gradient(
       180deg,
       rgba(255, 255, 255, 0.08),
       rgba(255, 255, 255, 0.02)
     ),
-    rgba(22, 22, 30, 0.72) !important;
+    rgba(22, 22, 30, 0.5) !important;
   border-color: rgba(255, 255, 255, 0.16) !important;
   backdrop-filter: blur(18px) saturate(1.3);
 }

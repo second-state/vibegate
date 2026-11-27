@@ -164,13 +164,17 @@
   role="presentation"
   on:dblclick={fitFocused}
 >
-  <!-- Canvas background image (behind everything, dimmed for contrast). -->
+  <!-- Canvas background image (behind everything, dimmed by the
+       appearance.canvasBgDim slider for contrast). -->
   {#if $appearance.canvasBg}
     <div
       class="pointer-events-none absolute inset-0 bg-cover bg-center"
       style:background-image={`url("${resolveBgUrl($appearance.canvasBg)}")`}
     ></div>
-    <div class="pointer-events-none absolute inset-0 bg-black/55"></div>
+    <div
+      class="pointer-events-none absolute inset-0 bg-black"
+      style:opacity={Math.min(100, Math.max(0, $appearance.canvasBgDim ?? 55)) / 100}
+    ></div>
   {/if}
 
   <!-- Dot grid background, moving with the canvas. -->

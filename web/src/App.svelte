@@ -269,20 +269,23 @@
   });
 </script>
 
-<!-- Safe-area padding keeps the bar/canvas out of notches and the home
-     indicator when launched fullscreen from a home-screen icon; zero in
-     a normal browser tab. -->
+<!-- Safe-area padding keeps content out of notches and the home indicator
+     when launched fullscreen from a home-screen icon; zero in a normal
+     browser tab. The canvas fills the whole padded box and the header floats
+     over it, so glass frosts windows sliding underneath. -->
 <div
-  class="fixed inset-0 flex flex-col text-slate-200 select-none"
+  class="fixed inset-0 text-slate-200 select-none"
   style:padding="env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)"
 >
-  <ConnectBar />
-  <div class="relative flex-1 min-h-0">
+  <div class="relative h-full">
     <Canvas />
     <SessionDrawer />
     <FileDrawer />
     <!-- Keybar floats just below the focused terminal window (fixed, so the
          canvas never scales it). -->
     <Keybar />
+  </div>
+  <div class="absolute inset-x-0 top-0 z-30" style:padding-top="env(safe-area-inset-top)">
+    <ConnectBar />
   </div>
 </div>

@@ -15,22 +15,11 @@ import { WebglAddon } from "@xterm/addon-webgl";
 import { UnicodeGraphemesAddon } from "@xterm/addon-unicode-graphemes";
 import { get, writable, type Writable } from "svelte/store";
 import { TERM_FONT_FAMILY, TERM_FONT_SIZE, TERM_PRESETS } from "./theme";
-import { appearance, getAppearance, resolveBgUrl } from "./appearance";
+import { appearance, getAppearance, resolveBgUrl, withAlpha } from "./appearance";
 import { stickyMods, clearMods, applyModsToTyped } from "./mods";
 import { t } from "./i18n";
 
 const SYNC_DEBOUNCE_MS = 200;
-
-/** `#rrggbb` → `#rrggbbaa` with alpha = opacityPct/100 (xterm's
- *  allowTransparency renders it over whatever sits behind the canvas). */
-function withAlpha(hex: string, opacityPct: number): string {
-  const body = hex.replace("#", "");
-  if (body.length !== 6) return hex;
-  const a = Math.round((Math.min(100, Math.max(0, opacityPct)) / 100) * 255)
-    .toString(16)
-    .padStart(2, "0");
-  return `#${body}${a}`;
-}
 
 export type SessionStatus = "connecting" | "live" | "ended" | "error";
 

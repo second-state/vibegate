@@ -6,7 +6,7 @@
   import { connection } from "../lib/connection";
   import { statusColor, statusTextCls, type Instance } from "../lib/discovery";
   import { t } from "../lib/i18n";
-  import { appearance } from "../lib/appearance";
+  import { appearance, surfaceStyle } from "../lib/appearance";
 
   const list = discovery.list;
   const connState = connection.state;
@@ -108,9 +108,8 @@
 
 {#if $drawerOpen}
   <div
-    class="absolute inset-y-2 right-2 z-10 flex w-72 max-w-[calc(100vw-1rem)] flex-col overflow-hidden rounded-xl border border-slate-700 bg-slate-900/95 shadow-2xl backdrop-blur"
-    data-chrome={$appearance.chrome}
-    data-surface="drawer"
+    class="absolute bottom-2 right-2 top-14 z-10 flex w-72 max-w-[calc(100vw-1rem)] flex-col overflow-hidden rounded-xl border border-slate-700 bg-slate-900/95 shadow-2xl backdrop-blur"
+    style={surfaceStyle($appearance.chrome, $appearance.termBgOpacity ?? 100)}
   >
     <div class="flex items-center justify-between border-b border-slate-800 px-3 py-2">
       <span class="text-xs font-semibold text-slate-300">{$t("sessions")}</span>

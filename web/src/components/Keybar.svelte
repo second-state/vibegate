@@ -24,6 +24,9 @@
   let barH = 0;
   let winLeft = 0;
   let winBottom = 0;
+  /** Header bottom (viewport px): the header floats over the canvas now, so
+   *  the float bar must not slide underneath it. */
+  let headerBottom = 8;
   const clamp = (v: number, lo: number, hi: number) =>
     Math.min(Math.max(v, lo), Math.max(lo, hi));
 
@@ -39,6 +42,8 @@
     const r = el?.getBoundingClientRect();
     winLeft = r ? r.left : 0;
     winBottom = r ? r.bottom : 0;
+    const h = document.querySelector("header")?.getBoundingClientRect().bottom;
+    headerBottom = (h ?? 8) + 4;
   }
   // Re-anchor on: focus/rect change, any canvas pan or zoom frame, viewport
   // resize. canvasMoved bumps on every transform frame, so the bar follows
@@ -48,7 +53,7 @@
 
   // Top edge flush with the window's bottom edge.
   $: barX = Math.round(clamp(winLeft, 8, vw - barW - 8));
-  $: barY = Math.round(clamp(winBottom, 8, vh - barH - 8));
+  $: barY = Math.round(clamp(winBottom, headerBottom, vh - barH - 8));
 
   /** Quick keys row 1. `1×` is an action (zoom reset), not a keypress. */
   const KEYS_ROW1: { label: string; bytes?: string; action?: "resetZoom" }[] = [
@@ -109,9 +114,9 @@
   <div
     class="z-[5] border-slate-800 bg-[#16161e]/95 backdrop-blur {$appearance.keybar === 'float'
       ? 'fixed rounded-lg border shadow-xl'
-      : 'absolute inset-x-0 top-0 border-b'}"
+      : 'absolute inset-x-0 border-b'}"
     style:left={$appearance.keybar === "float" ? `${barX}px` : null}
-    style:top={$appearance.keybar === "float" ? `${barY}px` : null}
+    style:top={$appearance.keybar === "float" ? `${barY}px` : "49px"}
     bind:clientWidth={barW}
     bind:clientHeight={barH}
   >

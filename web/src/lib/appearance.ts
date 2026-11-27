@@ -11,6 +11,9 @@ export type Appearance = {
   theme: string;
   /** Background image for the canvas: file path or http(s) URL. Empty = none. */
   canvasBg: string;
+  /** Black overlay over the canvas background image, 0–100 (100 = fully
+   *  black): dims the picture so terminal windows stand out. */
+  canvasBgDim: number;
   /** Background image for terminal windows: file path or http(s) URL. Empty = none. */
   termBg: string;
   /** Opacity of the terminal background, 0–100 (100 = fully opaque): the
@@ -26,6 +29,7 @@ export type Appearance = {
 const DEFAULTS: Appearance = {
   theme: "tokyo-night",
   canvasBg: "",
+  canvasBgDim: 55,
   termBg: "",
   termBgOpacity: 100,
   keybar: "float",
@@ -68,6 +72,39 @@ export function getAppearance(): Appearance {
 
 export function setAppearance(patch: Partial<Appearance>) {
   appearance.update((a) => ({ ...a, ...patch }));
+}
+
+/** `#rrggbb` → `#rrggbbaa` with alpha = opacityPct/100 (xterm's
+ *  allowTransparency renders it over whatever sits behind the canvas). */
+export function withAlpha(hex: string, opacityPct: number): string {
+  const body = hex.replace("#", "");
+  if (body.length !== 6) return hex;
+  const a = Math.round((Math.min(100, Math.max(0, opacityPct)) / 100) * 255)
+    .toString(16)
+    .padStart(2, "0");
+  return `#${body}${a}`;
+}
+
+/** Inline background/border style for the chrome surfaces (header, session
+ *  and files drawers): a base fading with the terminal opacity slider —
+ *  the same fade the terminals get — with the chrome style decorations
+ *  layered on top. */
+export function surfaceStyle(chrome: Appearance["chrome"], opacityPct: number): string {
+  const base = withAlpha("#16161e", opacityPct);
+  if (chrome === "glass") {
+    return (
+      `background:linear-gradient(180deg,rgba(255,255,255,.08),rgba(255,255,255,.02)),${base};` +
+      `backdrop-filter:blur(18px) saturate(1.3);` +
+      `border-color:rgba(255,255,255,.16);`
+    );
+  }
+  if (chrome === "cyber") {
+    return (
+      `background:linear-gradient(90deg,rgba(34,211,238,.08),rgba(217,70,239,.08)),${base};` +
+      `border-color:rgba(34,211,238,.45);`
+    );
+  }
+  return `background:${base};`;
 }
 
 /**

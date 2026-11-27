@@ -10,6 +10,7 @@
   import { appearance, resolveBgUrl, type Appearance } from "../lib/appearance";
   import { TERM_PRESETS } from "../lib/theme";
   import { t, lang, type Lang } from "../lib/i18n";
+  import { surfaceStyle } from "../lib/appearance";
 
   const KEYBAR_MODES: {
     val: Appearance["keybar"];
@@ -71,6 +72,11 @@
     error: "stateError",
   } as const;
 
+  /** Header background follows the terminal opacity slider (see
+   *  surfaceStyle in lib/appearance) — the header floats over the canvas,
+   *  so lowering the slider lets windows/canvas show through it. */
+  $: headerStyle = surfaceStyle($appearance.chrome, $appearance.termBgOpacity ?? 100);
+
   function doConnect() {
     const verr = validateGatewayUrl(url.trim());
     if (verr) {
@@ -96,10 +102,9 @@
 </script>
 
 <header
-  class="relative z-30 flex items-center gap-2 border-b border-slate-800 bg-[#16161e] px-3 py-2"
+  class="relative z-30 flex items-center gap-2 border-b border-slate-800 px-3 py-2"
   bind:this={headerEl}
-  data-chrome={$appearance.chrome}
-  data-surface="header"
+  style={headerStyle}
 >
   <!-- Hamburger menu: toggles the settings panel. -->
   <button
@@ -239,6 +244,28 @@
               spellcheck="false"
             />
           </label>
+          <!-- dim slider for the canvas background image (0 = original) -->
+          <div class="mb-1.5 text-xs text-slate-400">
+            <div class="mb-1">{$t("canvasBgDim")}</div>
+            <div class="flex items-center gap-2">
+              <input
+                type="range"
+                min="0"
+                max="100"
+                step="1"
+                class="min-w-0 flex-1 accent-blue-500"
+                bind:value={$appearance.canvasBgDim}
+              />
+              <input
+                type="number"
+                min="0"
+                max="100"
+                class="w-14 shrink-0 rounded-md border border-slate-700 bg-slate-900 px-1.5 py-1 text-right text-xs text-slate-100 outline-none focus:border-blue-500"
+                bind:value={$appearance.canvasBgDim}
+              />
+              <span class="shrink-0">%</span>
+            </div>
+          </div>
           <label class="block text-xs text-slate-400">
             <div class="mb-1">{$t("terminalBgLabel")}</div>
             <input
