@@ -97,8 +97,9 @@ async fn shutdown_handler(ConnectInfo(addr): ConnectInfo<std::net::SocketAddr>) 
 }
 
 /// Session backend: classic herdr socket, or herdr-core (`hc`).
-#[derive(ValueEnum, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(ValueEnum, Debug, Clone, Copy, Default, PartialEq, Eq)]
 enum Backend {
+    #[default]
     Herdr,
     Hc,
 }
@@ -221,27 +222,20 @@ async fn main() -> Result<()> {
         }
         Commands::Stop => stop_gateway(&loopback_base(&cli.bind)).await,
         Commands::Status => status_gateway(&loopback_base(&cli.bind)).await,
-        Commands::Tui => tui::run().await,
+        Commands::Tui => tui::run(cli.bind.clone(), cli.backend, cli.herdr_socket.clone()).await,
         Commands::Update { tag } => update::run(Some(tag)).await.map_err(anyhow::Error::msg),
     }
 }
 
-/// Foreground runs log to stdio; the detached daemon (VIBEFLEET_LOG_FILE set
-/// by the launcher) logs to file with vibetty-style rotation: append, 10MB
-/// per file, keep 5 days. RUST_LOG filters both paths.
+/// Foreground runs log to stdio; the detached daemon (VIBEFLEET_LOG_DIR set
+/// by the launcher) logs to `<dir>/vibefleet_rCURRENT.log` with vibetty-style
+/// rotation: append, 10MB per file, keep 5 days (the `_rCURRENT` suffix is
+/// flexi_logger's own naming for the current file). RUST_LOG filters both.
 fn init_logger() -> Option<flexi_logger::LoggerHandle> {
-    match std::env::var("VIBEFLEET_LOG_FILE") {
-        Ok(path) if !path.is_empty() => {
-            let path = std::path::PathBuf::from(path);
-            let dir = path
-                .parent()
-                .map(|d| d.to_path_buf())
-                .unwrap_or_else(|| PathBuf::from("."));
+    match std::env::var("VIBEFLEET_LOG_DIR") {
+        Ok(dir) if !dir.is_empty() => {
+            let dir = std::path::PathBuf::from(dir);
             std::fs::create_dir_all(&dir).ok();
-            let basename = path
-                .file_stem()
-                .map(|s| s.to_string_lossy().to_string())
-                .unwrap_or_else(|| "vibefleet".into());
             use flexi_logger::{Cleanup, Criterion, FileSpec, Logger, Naming, WriteMode};
             Some(
                 Logger::try_with_env_or_str("info")
@@ -250,7 +244,7 @@ fn init_logger() -> Option<flexi_logger::LoggerHandle> {
                         FileSpec::default()
                             .suppress_timestamp()
                             .directory(dir)
-                            .basename(basename),
+                            .basename("vibefleet"),
                     )
                     .format_for_files(flexi_logger::detailed_format) // 带时间戳
                     .append()
@@ -277,8 +271,8 @@ fn init_logger() -> Option<flexi_logger::LoggerHandle> {
 }
 
 /// Launcher for `run -d`: refuse double-starts (probe /api/status first),
-/// then exec ourselves detached with stdio into the log file. The child runs
-/// the same foreground `run`; only VIBEFLEET_LOG_FILE tells it to log to file.
+/// then exec ourselves detached. The child runs the same foreground `run`;
+/// only VIBEFLEET_LOG_DIR tells it to log to file.
 async fn spawn_detached(
     bind: &str,
     backend: Backend,
@@ -301,37 +295,26 @@ async fn spawn_detached(
     }
 
     let exe = std::env::current_exe().context("locate current executable")?;
-    // An explicit VIBEFLEET_LOG_FILE from the caller wins; default otherwise.
-    let log_path = match std::env::var("VIBEFLEET_LOG_FILE") {
+    // An explicit VIBEFLEET_LOG_DIR from the caller wins; default otherwise.
+    // All tracing goes through flexi_logger into the dir — stdio is nulled,
+    // no stray redirect file next to the real log.
+    let log_dir = match std::env::var("VIBEFLEET_LOG_DIR") {
         Ok(p) if !p.is_empty() => PathBuf::from(p),
         _ => std::env::var("HOME")
-            .map(|h| {
-                PathBuf::from(h)
-                    .join(".vibefleet")
-                    .join("logs")
-                    .join("vibefleet.log")
-            })
-            .unwrap_or_else(|_| PathBuf::from("vibefleet.log")),
+            .map(|h| PathBuf::from(h).join(".vibefleet").join("logs"))
+            .unwrap_or_else(|_| PathBuf::from(".")),
     };
-    if let Some(dir) = log_path.parent() {
-        std::fs::create_dir_all(dir).ok();
-    }
-    let log = std::fs::OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(&log_path)
-        .context("open daemon log file")?;
-    let err = log.try_clone().context("clone log file handle")?;
+    std::fs::create_dir_all(&log_dir).ok();
 
     use std::os::unix::process::CommandExt;
     let mut cmd = std::process::Command::new(&exe);
     cmd.arg("run")
         .arg("--bind")
         .arg(bind)
-        .env("VIBEFLEET_LOG_FILE", &log_path)
+        .env("VIBEFLEET_LOG_DIR", &log_dir)
         .stdin(std::process::Stdio::null())
-        .stdout(std::process::Stdio::from(log))
-        .stderr(std::process::Stdio::from(err))
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
         .process_group(0); // detach from the terminal's process group
     for r in file_roots {
         cmd.arg("--file-root").arg(r);
@@ -347,8 +330,8 @@ async fn spawn_detached(
     }
     cmd.spawn().context("spawn detached daemon")?;
     println!(
-        "vibefleet started in background on {bind} (log: {})",
-        log_path.display()
+        "vibefleet started in background on {bind} (log dir: {})",
+        log_dir.display()
     );
     Ok(())
 }

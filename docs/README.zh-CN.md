@@ -71,8 +71,8 @@ vibefleet list
 - `--file-root DIR` — 文件 API 允许访问的目录;可重复,默认 `$HOME`
 - `--herdr-socket PATH` — herdr socket 覆盖
 
-环境变量:`VIBEFLEET_BIND`、`VIBEFLEET_HERDR_SOCKET`、`VIBEFLEET_LOG_FILE`
-(守护进程日志位置)、`RUST_LOG`(日志级别,默认 `info`)。
+环境变量:`VIBEFLEET_BIND`、`VIBEFLEET_HERDR_SOCKET`、`VIBEFLEET_LOG_DIR`
+(守护进程日志目录)、`RUST_LOG`(日志级别,默认 `info`)。
 
 ## 守护进程
 
@@ -83,8 +83,8 @@ vibefleet stop                         # 优雅关停
 ```
 
 守护进程日志写入 `~/.vibefleet/logs/`——当前文件为
-`vibefleet_rCURRENT.log`,10MB 轮转、保留 5 天(可用 `VIBEFLEET_LOG_FILE`
-覆盖)。重复 `run -d` 会报已运行的版本,不会双开。前台 `run` 保留给
+`vibefleet_rCURRENT.log`,10MB 轮转、保留 5 天(可用 `VIBEFLEET_LOG_DIR`
+改日志目录)。重复 `run -d` 会报已运行的版本,不会双开。前台 `run` 保留给
 systemd 这类 supervisor。
 
 ## herdr 插件

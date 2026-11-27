@@ -71,7 +71,7 @@ Useful flags and defaults:
 - `--herdr-socket PATH` — herdr socket override
 
 Environment variables: `VIBEFLEET_BIND`, `VIBEFLEET_HERDR_SOCKET`,
-`VIBEFLEET_LOG_FILE` (daemon log destination), `RUST_LOG` (log filter, default `info`).
+`VIBEFLEET_LOG_DIR` (daemon log directory), `RUST_LOG` (log filter, default `info`).
 
 ## Daemon
 
@@ -83,7 +83,7 @@ vibefleet stop                         # graceful shutdown
 
 The daemon appends logs to `~/.vibefleet/logs/` — current file
 `vibefleet_rCURRENT.log`, rotated at 10 MB with 5-day retention (set
-`VIBEFLEET_LOG_FILE` to override). Starting a second instance is refused with
+`VIBEFLEET_LOG_DIR` to relocate the directory). Starting a second instance is refused with
 the running version. Foreground `run` stays available for systemd-style
 supervisors.
 

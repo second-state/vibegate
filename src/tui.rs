@@ -1,7 +1,9 @@
 //! `vibefleet herdr-tui` — fullscreen gateway dashboard for the herdr plugin
 //! pane: ratatui-kit runtime (state/events) + plain ratatui rendering.
 
-use crate::{loopback_base, raw_http};
+use std::path::PathBuf;
+
+use crate::{Backend, loopback_base, raw_http};
 use ratatui_kit::prelude::*;
 use ratatui_kit::{
     crossterm::event::{Event, KeyCode, KeyEventKind},
@@ -13,24 +15,38 @@ use ratatui_kit::{
     },
 };
 
-fn log_path() -> String {
-    std::env::var("VIBEFLEET_LOG_FILE").unwrap_or_else(|_| {
+fn log_dir() -> String {
+    std::env::var("VIBEFLEET_LOG_DIR").unwrap_or_else(|_| {
         format!(
-            "{}/.vibefleet/logs/vibefleet_rCURRENT.log",
+            "{}/.vibefleet/logs",
             std::env::var("HOME").unwrap_or_default()
         )
     })
 }
 
-fn start_daemon(addr: String, log: String) {
+/// The tail panel reads flexi_logger's current file inside the log dir.
+fn log_tail_path() -> std::path::PathBuf {
+    std::path::PathBuf::from(log_dir()).join("vibefleet_rCURRENT.log")
+}
+
+fn start_daemon(addr: String, dir: String, backend: Backend, herdr_socket: Option<PathBuf>) {
     if let Ok(exe) = std::env::current_exe() {
         let _ = std::thread::spawn(move || {
             use std::os::unix::process::CommandExt;
             // Stdio::null for stdout/stderr: `run -d` prints "started in
             // background" and would spray it over the fullscreen TUI.
-            let _ = std::process::Command::new(exe)
-                .args(["run", "-d", "--bind", &addr])
-                .env("VIBEFLEET_LOG_FILE", log)
+            let mut cmd = std::process::Command::new(exe);
+            cmd.args(["run", "-d", "--bind", &addr]);
+            // Forward what the TUI itself was started with — without these
+            // the daemon falls back to the defaults (herdr / default socket).
+            if backend == Backend::Hc {
+                cmd.arg("--backend").arg("hc");
+            }
+            if let Some(sock) = herdr_socket {
+                cmd.arg("--herdr-socket").arg(sock);
+            }
+            let _ = cmd
+                .env("VIBEFLEET_LOG_DIR", dir)
                 .stdin(std::process::Stdio::null())
                 .stdout(std::process::Stdio::null())
                 .stderr(std::process::Stdio::null())
@@ -80,9 +96,22 @@ impl Widget for ButtonsWidget {
     }
 }
 
+/// CLI values (flag, env or default) the TUI was started with — they drive
+/// the probe, Stop, and what the Start button spawns.
+#[derive(Default, Props)]
+pub struct HerdrTuiProps {
+    pub bind: String,
+    pub backend: Backend,
+    pub herdr_socket: Option<PathBuf>,
+}
+
 /// Entry: run the dashboard fullscreen until the user quits.
-pub async fn run() -> anyhow::Result<()> {
-    ratatui_kit::element!(HerdrTui)
+pub async fn run(
+    bind: String,
+    backend: Backend,
+    herdr_socket: Option<PathBuf>,
+) -> anyhow::Result<()> {
+    ratatui_kit::element!(HerdrTui(bind: bind, backend: backend, herdr_socket: herdr_socket))
         .fullscreen()
         .await
         .map_err(|e| anyhow::anyhow!("{e}"))
@@ -137,13 +166,15 @@ impl Widget for DashboardWidget {
 }
 
 #[component]
-fn HerdrTui(mut hooks: Hooks) -> impl Into<AnyElement<'static>> {
-    let bind = std::env::var("VIBEFLEET_BIND").unwrap_or_else(|_| "http://127.0.0.1:8480".into());
+fn HerdrTui(props: &mut HerdrTuiProps, mut hooks: Hooks) -> impl Into<AnyElement<'static>> {
+    let bind = props.bind.clone();
+    let backend = props.backend;
+    let herdr_socket = props.herdr_socket.clone();
     let addr = bind
         .trim_start_matches("http://")
         .trim_start_matches("https://")
         .to_string();
-    let log = log_path();
+    let log = log_dir();
 
     let mut status = hooks.use_state(|| "checking…".to_string());
     let mut selected = hooks.use_state(|| 0_usize);
@@ -182,6 +213,8 @@ fn HerdrTui(mut hooks: Hooks) -> impl Into<AnyElement<'static>> {
     let ev_addr = addr.clone();
     let ev_bind = loopback_base(&bind);
     let ev_log = log.clone();
+    let ev_backend = backend;
+    let ev_sock = herdr_socket.clone();
     hooks.use_event_handler(EventScope::Current, EventPriority::Normal, move |event| {
         let Event::Key(key) = event else {
             return EventResult::Ignored;
@@ -201,7 +234,7 @@ fn HerdrTui(mut hooks: Hooks) -> impl Into<AnyElement<'static>> {
             }
             KeyCode::Enter => match idx {
                 0 => {
-                    start_daemon(ev_addr.clone(), ev_log.clone());
+                    start_daemon(ev_addr.clone(), ev_log.clone(), ev_backend, ev_sock.clone());
                     EventResult::Consumed
                 }
                 1 => {
@@ -214,7 +247,7 @@ fn HerdrTui(mut hooks: Hooks) -> impl Into<AnyElement<'static>> {
                 }
             },
             KeyCode::Char('s') => {
-                start_daemon(ev_addr.clone(), ev_log.clone());
+                start_daemon(ev_addr.clone(), ev_log.clone(), ev_backend, ev_sock.clone());
                 EventResult::Consumed
             }
             KeyCode::Char('x') => {
@@ -231,7 +264,7 @@ fn HerdrTui(mut hooks: Hooks) -> impl Into<AnyElement<'static>> {
 
     // Fresh tail + status on every render (renders fire ~1/s via the probe).
     let status_value = status.read().clone();
-    let tail: Vec<Line> = std::fs::read_to_string(&log)
+    let tail: Vec<Line> = std::fs::read_to_string(log_tail_path())
         .map(|c| {
             let lines: Vec<&str> = c.lines().collect();
             let start = lines.len().saturating_sub(12);
