@@ -15,14 +15,19 @@ type ExistingWindow = {
   h: number;
 };
 
-/** Choose a position for a new window that does not intersect existing ones. */
-export function arrangeNewTerminal(existing: ExistingWindow[]) {
+/** Choose a position for a new window that does not intersect existing ones.
+ *  The spiral grows from `origin` — the pane at the viewport center (see
+ *  spiralOrigin in canvas.ts), so new panes appear near what is on screen. */
+export function arrangeNewTerminal(
+  existing: ExistingWindow[],
+  origin = { x: 0, y: 0 },
+) {
   if (existing.length === 0) {
-    return { x: 0, y: 0 };
+    return { ...origin };
   }
 
-  const startX = 100 * (Math.random() - 0.5);
-  const startY = 60 * (Math.random() - 0.5);
+  const startX = origin.x + 100 * (Math.random() - 0.5);
+  const startY = origin.y + 60 * (Math.random() - 0.5);
 
   for (let i = 0; ; i++) {
     const t = 1.94161103872 * i;

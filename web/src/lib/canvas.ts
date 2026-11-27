@@ -226,6 +226,32 @@ export function getSession(prefix: string): TerminalSession | undefined {
 }
 
 /** Open a window for an instance (no-op if already open) and focus it. */
+/** Spiral origin for a new window: the pane at the viewport center (nearest
+ *  center otherwise) — new panes appear near what is on screen. With no
+ *  panes at all, the viewport-center world point itself.
+ *  Screen → world: world = center + anchor/zoom (see fitFocused in
+ *  Canvas.svelte). */
+function spiralOrigin(): { x: number; y: number } {
+  const zt = get(zoomController);
+  if (!zt) return { x: 0, y: 0 };
+  const z = zt.zoom || 1;
+  const cx = zt.center[0] + ANCHOR_X / z;
+  const cy = zt.center[1] + ANCHOR_Y / z;
+  let best: WindowRect | null = null;
+  let bestD = Infinity;
+  for (const r of get(windows).values()) {
+    if (cx >= r.x && cx <= r.x + r.w && cy >= r.y && cy <= r.y + r.h) {
+      return { x: r.x, y: r.y };
+    }
+    const d = (r.x + r.w / 2 - cx) ** 2 + (r.y + r.h / 2 - cy) ** 2;
+    if (d < bestD) {
+      bestD = d;
+      best = r;
+    }
+  }
+  return best ? { x: best.x, y: best.y } : { x: Math.round(cx), y: Math.round(cy) };
+}
+
 export function openWindow(prefix: string) {
   const map = get(windows);
   let rect: WindowRect;
@@ -233,7 +259,7 @@ export function openWindow(prefix: string) {
     rect = map.get(prefix)!;
   } else {
     rect = { x: 0, y: 0, w: DEFAULT_W, h: DEFAULT_H };
-    const pos = arrangeNewTerminal([...map.values()]);
+    const pos = arrangeNewTerminal([...map.values()], spiralOrigin());
     rect.x = pos.x;
     rect.y = pos.y;
     windows.set(new Map(map).set(prefix, rect));
