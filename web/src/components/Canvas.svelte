@@ -41,6 +41,27 @@
   let center: number[] = [0, 0];
   let zoom = INITIAL_ZOOM;
 
+  /** CSS for the grid backdrop tile: all styles share the 64px world grid,
+   *  offset by the pan so tiles stay glued to world coordinates. */
+  function gridBackdropStyle(style: "dots" | "lines" | "cross" | "none"): string {
+    const s = `${64 * zoom}px ${64 * zoom}px`;
+    const pos = `${-zoom * center[0]}px ${-zoom * center[1]}px`;
+    if (style === "lines") {
+      return (
+        `background-image:linear-gradient(to right,#262a3d 1px,transparent 1px),` +
+        `linear-gradient(to bottom,#262a3d 1px,transparent 1px);` +
+        `background-size:${s};background-position:${pos};`
+      );
+    }
+    if (style === "cross") {
+      const tile =
+        `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='64' height='64'>` +
+        `<path d='M32 26v12M26 32h12' stroke='%23262a3d' stroke-width='2.5'/></svg>")`;
+      return `background-image:${tile};background-size:${s};background-position:${pos};`;
+    }
+    return `background-image:radial-gradient(#262a3d ${zoom}px,transparent 0);background-size:${s};background-position:${pos};`;
+  }
+
   onMount(() => {
     touchZoom = new TouchZoom(fabric);
     fabric.tabIndex = -1; // focusable: entering canvas mode focuses it
@@ -177,13 +198,14 @@
     ></div>
   {/if}
 
-  <!-- Dot grid background, moving with the canvas. -->
-  <div
-    class="pointer-events-none absolute inset-0"
-    style:background-image="radial-gradient(#262a3d {zoom}px, transparent 0)"
-    style:background-size="{24 * zoom}px {24 * zoom}px"
-    style:background-position="{-zoom * center[0]}px {-zoom * center[1]}px"
-  ></div>
+  <!-- Canvas grid backdrop, moving with the canvas; style picked in
+       appearance (dots / lines / cross / hidden). -->
+  {#if ($appearance.canvasGrid ?? "dots") !== "none"}
+    <div
+      class="pointer-events-none absolute inset-0"
+      style={gridBackdropStyle($appearance.canvasGrid ?? "dots")}
+    ></div>
+  {/if}
 
   <!-- World container: all windows, scaled and translated by the canvas. -->
   <div

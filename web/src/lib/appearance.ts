@@ -11,6 +11,8 @@ export type Appearance = {
   theme: string;
   /** Background image for the canvas: file path or http(s) URL. Empty = none. */
   canvasBg: string;
+  /** Canvas grid backdrop style: dots / lines / cross / none. */
+  canvasGrid: "dots" | "lines" | "cross" | "none";
   /** Black overlay over the canvas background image, 0–100 (100 = fully
    *  black): dims the picture so terminal windows stand out. */
   canvasBgDim: number;
@@ -29,6 +31,7 @@ export type Appearance = {
 const DEFAULTS: Appearance = {
   theme: "tokyo-night",
   canvasBg: "",
+  canvasGrid: "dots",
   canvasBgDim: 55,
   termBg: "",
   termBgOpacity: 100,
@@ -44,6 +47,7 @@ function load(): Appearance {
       const a = { ...DEFAULTS, ...JSON.parse(raw) } as Appearance;
       // sanitize removed styles (e.g. "hud") back to the default
       if (!["classic", "glass", "cyber"].includes(a.chrome)) a.chrome = "classic";
+      if (!["dots", "lines", "cross", "none"].includes(a.canvasGrid)) a.canvasGrid = "dots";
       return a;
     }
   } catch {

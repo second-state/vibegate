@@ -12,6 +12,15 @@
   import { t, lang, type Lang } from "../lib/i18n";
   import { surfaceStyle } from "../lib/appearance";
 
+  const GRID_MODES: {
+    val: Appearance["canvasGrid"];
+    label: "gridDots" | "gridLines" | "gridCross" | "gridNone";
+  }[] = [
+    { val: "dots", label: "gridDots" },
+    { val: "lines", label: "gridLines" },
+    { val: "cross", label: "gridCross" },
+    { val: "none", label: "gridNone" },
+  ];
   const KEYBAR_MODES: {
     val: Appearance["keybar"];
     label: "keybarFloat" | "keybarTop" | "keybarHidden";
@@ -264,6 +273,22 @@
                 bind:value={$appearance.canvasBgDim}
               />
               <span class="shrink-0">%</span>
+            </div>
+          </div>
+          <!-- canvas grid backdrop style -->
+          <div class="mb-1.5 text-xs text-slate-400">
+            <div class="mb-1">{$t("canvasGrid")}</div>
+            <div class="flex overflow-hidden rounded-md border border-slate-700">
+              {#each GRID_MODES as m (m.val)}
+                <button
+                  class="flex-1 py-1 text-xs {$appearance.canvasGrid === m.val
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-slate-900 text-slate-300 hover:bg-slate-800'}"
+                  on:click={() => appearance.set({ ...$appearance, canvasGrid: m.val })}
+                >
+                  {$t(m.label)}
+                </button>
+              {/each}
             </div>
           </div>
           <label class="block text-xs text-slate-400">
