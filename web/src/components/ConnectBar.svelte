@@ -98,6 +98,8 @@
 <header
   class="relative z-30 flex items-center gap-2 border-b border-slate-800 bg-[#16161e] px-3 py-2"
   bind:this={headerEl}
+  data-chrome={$appearance.chrome}
+  data-surface="header"
 >
   <!-- Hamburger menu: toggles the settings panel. -->
   <button
@@ -169,7 +171,11 @@
   </div>
 
   {#if showSettings}
-    <div class="absolute left-2 top-full mt-1 w-[calc(100vw-1rem)] max-w-md rounded-lg border border-slate-700 bg-[#1a1b26] p-3 shadow-xl">
+    <div
+      class="absolute left-2 top-full mt-1 w-[calc(100vw-1rem)] max-w-md rounded-lg border border-slate-700 bg-[#1a1b26] p-3 shadow-xl"
+      data-chrome={$appearance.chrome}
+      data-surface="panel"
+    >
       <div class="flex flex-col gap-2">
         <label class="flex flex-col gap-1 text-xs text-slate-400">
           {$t("gatewayUrl")}
