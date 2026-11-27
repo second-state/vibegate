@@ -84,6 +84,12 @@ export const filesRows: Writable<string[]> = writable([]);
  *  touch reaches the canvas for panning & zooming (a "hand tool"). */
 export const canvasOnly: Writable<boolean> = writable(false);
 
+/** Long-press on a term pane while in canvas mode → open that window's
+ *  context menu (mobile has no right-click, and the pane is click-through
+ *  in this mode, so the canvas layer detects the press and requests it). */
+export const termCtxRequest: Writable<{ prefix: string; x: number; y: number } | null> =
+  writable(null);
+
 /** Prefix marking canvas windows that view a file (path follows the prefix). */
 export const IMAGE_KEY_PREFIX = "img:";
 export const MD_KEY_PREFIX = "md:";

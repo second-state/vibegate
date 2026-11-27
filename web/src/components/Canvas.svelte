@@ -10,6 +10,7 @@
     canvasZoom,
     canvasMoved,
     canvasOnly,
+    termCtxRequest,
     ANCHOR_X,
     ANCHOR_Y,
     IMAGE_KEY_PREFIX,
@@ -65,6 +66,56 @@
       canvasOnly.update((v) => !v);
     };
     fabric.addEventListener("mousedown", middleToggle);
+    // Long-press (touch, canvas mode only) on a term pane → open its context
+    // menu: there is no right-click on mobile, and in canvas mode the pane is
+    // click-through, so the touch lands on the fabric and the canvas layer
+    // resolves the window. Headers stay interactive → excluded via
+    // [data-window]. Movement (pan) or a second finger (pinch) cancels.
+    let lpTimer: ReturnType<typeof setTimeout> | null = null;
+    let lpStart: { x: number; y: number; id: number } | null = null;
+    const lpCancel = () => {
+      if (lpTimer) clearTimeout(lpTimer);
+      lpTimer = null;
+      lpStart = null;
+    };
+    const lpDown = (e: PointerEvent) => {
+      if (!$canvasOnly || e.pointerType !== "touch") return;
+      if (lpStart) {
+        lpCancel(); // second finger joins → pinch, not a press
+        return;
+      }
+      if (e.target instanceof Element && e.target.closest("[data-window]")) return;
+      lpStart = { x: e.clientX, y: e.clientY, id: e.pointerId };
+      lpTimer = setTimeout(() => {
+        lpTimer = null;
+        const start = lpStart;
+        lpStart = null;
+        if (!start) return;
+        // Topmost term window under the finger (document order = paint order);
+        // only term windows carry data-prefix.
+        const panes = document.querySelectorAll<HTMLElement>("[data-prefix]");
+        for (let i = panes.length - 1; i >= 0; i--) {
+          const r = panes[i].getBoundingClientRect();
+          if (start.x >= r.left && start.x <= r.right && start.y >= r.top && start.y <= r.bottom) {
+            termCtxRequest.set({ prefix: panes[i].dataset.prefix!, x: start.x, y: start.y });
+            return;
+          }
+        }
+      }, 500);
+    };
+    const lpMove = (e: PointerEvent) => {
+      if (
+        lpStart &&
+        e.pointerId === lpStart.id &&
+        (Math.abs(e.clientX - lpStart.x) > 10 || Math.abs(e.clientY - lpStart.y) > 10)
+      ) {
+        lpCancel(); // turned into a pan gesture
+      }
+    };
+    fabric.addEventListener("pointerdown", lpDown);
+    fabric.addEventListener("pointermove", lpMove);
+    window.addEventListener("pointerup", lpCancel);
+    window.addEventListener("pointercancel", lpCancel);
     const off = touchZoom.onMove(() => {
       center = touchZoom.center;
       zoom = touchZoom.zoom;
@@ -79,7 +130,12 @@
     });
     return () => {
       off();
+      lpCancel();
       fabric.removeEventListener("mousedown", middleToggle);
+      fabric.removeEventListener("pointerdown", lpDown);
+      fabric.removeEventListener("pointermove", lpMove);
+      window.removeEventListener("pointerup", lpCancel);
+      window.removeEventListener("pointercancel", lpCancel);
       touchZoom.destroy();
       zoomController.set(null);
     };

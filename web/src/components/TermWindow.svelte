@@ -12,6 +12,7 @@
     canvasOnly,
     filesNavigate,
     restoredKeys,
+    termCtxRequest,
     MIN_W,
     MIN_H,
   } from "../lib/canvas";
@@ -53,6 +54,14 @@ import { stopNative, nativePointerDown } from "../lib/actions";
     !restoredKeys.has(prefix)
   ) {
     closeWindow(prefix);
+  }
+
+  // Canvas-mode long-press on this pane → open the context menu at the
+  // press point (mobile equivalent of the right-click, see Canvas.svelte).
+  $: if ($termCtxRequest && $termCtxRequest.prefix === prefix) {
+    const req = $termCtxRequest;
+    termCtxRequest.set(null);
+    openCtxMenu(req.x, req.y);
   }
 
   // Refit when the window is resized (initial fit happens in attach()).
@@ -341,6 +350,7 @@ import { stopNative, nativePointerDown } from "../lib/actions";
     data-focused-window={focused ? "1" : undefined}
     data-chrome={$appearance.chrome}
     data-window="1"
+    data-prefix={prefix}
   >
     <!-- Header / drag handle -->
     <div
